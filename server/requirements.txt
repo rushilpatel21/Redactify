@@ -1,0 +1,6 @@
+Flask==3.1.0
+transformers==4.48.1
+torch==2.5.1
+presidio-analyzer==2.2.357
+spacy==3.8.4
+regex==2024.11.6
