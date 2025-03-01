@@ -10,6 +10,10 @@ from transformers import pipeline
 from presidio_analyzer import AnalyzerEngine
 from flask_cors import CORS
 
+from dotenv import load_dotenv
+load_dotenv()  
+
+
 # --- Configuration ---
 # (These can be further externalized via environment variables or a separate config file)
 CONFIG = {
@@ -314,7 +318,7 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
 
 # --- Flask API ---
 app = Flask(__name__)
-CORS(app, resources={r"/anonymize": {"origins": "http://localhost:5173"}})
+CORS(app, resources={r"/anonymize": {"origins": os.environ.get("FRONT_END_URL", "http://localhost:5173")}})
 
 @app.route("/anonymize", methods=["POST"])
 def anonymize():
