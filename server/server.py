@@ -4,10 +4,11 @@ import hashlib
 import logging
 import re
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse, urlunparse
 from flask import Flask, request, jsonify
-from transformers import pipeline
+from transformers import pipeline, AutoModelForTokenClassification, AutoTokenizer
 from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 from flask_cors import CORS
@@ -17,9 +18,11 @@ load_dotenv()
 
 # --- Configuration ---
 CONFIG = {
-    "confidence_threshold": float(os.environ.get("CONFIDENCE_THRESHOLD", 0.65)),  # Increased threshold
+    "confidence_threshold": float(os.environ.get("CONFIDENCE_THRESHOLD", 0.65)),  # Base threshold
     "context_window": 5,  # Words to check for context around potential PII
-    "max_workers": 4,  # Thread pool size
+    "max_workers": int(os.environ.get("MAX_WORKERS", 4)),  # Thread pool size
+    "use_specialized_models": os.environ.get("USE_SPECIALIZED_MODELS", "True").lower() == "true",
+    "enable_medical_pii": os.environ.get("ENABLE_MEDICAL_PII", "True").lower() == "true"
 }
 
 # Common terms that are often false positives
@@ -48,12 +51,14 @@ DEFAULT_PII_OPTIONS = {
     "CREDENTIAL": True,
     "ROLL_NUMBER": True,
     "DEVICE": True,
+    "MEDICAL": True,  # Added medical PII category
+    "ID_NUMBER": True  # Added ID number category
 }
 
 # Types to pseudonymize in full redaction mode
 PSEUDONYMIZE_TYPES = {
     "PERSON", "ORGANIZATION", "LOCATION", "EMAIL_ADDRESS", 
-    "API_KEY", "DEPLOY_TOKEN", "AUTHENTICATION"
+    "API_KEY", "DEPLOY_TOKEN", "AUTHENTICATION", "MEDICAL"
 }
 
 # --- Setup Logging ---
@@ -69,30 +74,67 @@ def load_models():
     models = {}
     
     try:
-        # General NER model
+        # 1. General NER model
         models["ner_general"] = pipeline(
             "ner", 
             model="dbmdz/bert-large-cased-finetuned-conll03-english", 
             aggregation_strategy="simple"
         )
+        logger.info("Loaded general NER model")
         
-        # Fallback in case the main model fails
+        # 2. Try to load specialized PII detection model
+        if CONFIG["use_specialized_models"]:
+            try:
+                models["pii_specialized"] = pipeline(
+                    "ner",
+                    model="1-13-am/xlm-roberta-base-pii-finetuned",  # Updated model
+                    aggregation_strategy="simple"
+                )
+                logger.info("Loaded specialized PII detection model")
+            except Exception as e:
+                logger.warning(f"Could not load specialized PII model: {e}")
+        
+        # 3. Try to load medical PII models if enabled
+        if CONFIG["enable_medical_pii"]:
+            try:
+                models["medical_pii"] = pipeline(
+                    "ner",
+                    model="obi/deid_roberta_i2b2",
+                    aggregation_strategy="simple"
+                )
+                logger.info("Loaded medical PII model")
+            except Exception as e:
+                logger.warning(f"Could not load medical PII model: {e}")
+                
+            # Add the additional medical model
+            try:
+                models["medical_reports"] = pipeline(
+                    "ner",
+                    model="theekshana/deid-roberta-i2b2-NER-medical-reports",
+                    aggregation_strategy="simple"
+                )
+                logger.info("Loaded medical reports NER model")
+            except Exception as e:
+                logger.warning(f"Could not load medical reports NER model: {e}")
+                
+        # 4. Try to load a technical NER model
         try:
-            # Try to load a second model for technical content
             models["ner_tech"] = pipeline(
                 "ner",
                 model="Jean-Baptiste/roberta-large-ner-english",
                 aggregation_strategy="simple"
             )
+            logger.info("Loaded technical NER model")
         except Exception as e:
             logger.warning(f"Could not load technical NER model: {e}")
             # Fallback to using the general model
             models["ner_tech"] = models["ner_general"]
         
-        # Presidio analyzer for specialized PII detection
+        # 5. Presidio analyzer for specialized PII detection
         models["presidio"] = AnalyzerEngine()
+        logger.info("Loaded Presidio Analyzer")
         
-        logger.info("All models loaded successfully")
+        logger.info(f"Successfully loaded {len(models)} models")
     except Exception as e:
         logger.error(f"Error loading models: {e}")
         if not models:
@@ -119,6 +161,7 @@ REGEX_PATTERNS = [
     {"type": "DATE_TIME", "pattern": r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}\b", "context": []},
     {"type": "DATE_TIME", "pattern": r"\b\d{1,2}/\d{2}\b", "context": ["exp", "expiration", "valid", "until"]},  # MM/YY format
     {"type": "DATE_TIME", "pattern": r"\b\d{4}-\d{2}-\d{2}\b", "context": []},  # YYYY-MM-DD format
+    {"type": "DATE_TIME", "pattern": r"\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\b", "context": []},  # YYYY-MM-DD HH:MM:SS
     
     # Phone number patterns
     {"type": "PHONE_NUMBER", "pattern": r"\b\d{10}\b", "context": ["phone", "mobile", "cell", "tel", "telephone", "contact"]},
@@ -176,89 +219,165 @@ REGEX_PATTERNS = [
     
     # Order/Account identifiers - more specific to avoid false positives
     {"type": "CREDENTIAL", "pattern": r"(?:Order|Account|Invoice)(?:\s+(?:Number|#|ID|No\.?)):\s*([A-Za-z0-9\-]+)", 
-     "context": ["order", "account", "#", "number"]}
+     "context": ["order", "account", "#", "number"]},
+     
+    # Medical record identifiers
+    {"type": "MEDICAL", "pattern": r"\b(?:patient|medical|health|record)\s+(?:id|number|#):\s*([A-Za-z0-9\-]+)", "context": []},
+    {"type": "MEDICAL", "pattern": r"\b(?:MRN|PHN)(?::|#|\s+number)?\s*:?\s*([A-Za-z0-9\-]+)", "context": []},
+    
+    # ID numbers and government identifiers
+    {"type": "ID_NUMBER", "pattern": r"\b(?:passport|driver|license|id)\s+(?:number|#):\s*([A-Za-z0-9\-]+)", "context": []},
+    {"type": "ID_NUMBER", "pattern": r"\b[A-Z]{1,2}[0-9]{6,9}\b", "context": ["passport", "government", "license", "identification"]},
 ]
 
 # --- Entity Normalization and Mapping ---
 ENTITY_TYPE_MAPPING = {
+    # Person entities
     "PERSON": "PERSON",
     "PER": "PERSON",
     "PEOPLE": "PERSON",
     "PERSONAL": "PERSON",
+    "INDIVIDUAL": "PERSON",
+    "NAME": "PERSON",
+    "PATIENT": "PERSON",
     
+    # Organization entities
     "ORG": "ORGANIZATION",
     "ORGANIZATION": "ORGANIZATION",
     "COMPANY": "ORGANIZATION",
     "CORPORATION": "ORGANIZATION",
+    "BUSINESS": "ORGANIZATION",
     
+    # Location entities
     "LOC": "LOCATION",
     "GPE": "LOCATION",
     "LOCATION": "LOCATION",
     "ADDRESS": "LOCATION",
     "PLACE": "LOCATION",
+    "STREET": "LOCATION",
+    "CITY": "LOCATION",
+    "STATE": "LOCATION",
+    "ZIP": "LOCATION",
+    "ZIPCODE": "LOCATION",
+    "POSTAL_CODE": "LOCATION",
     
+    # Email entities
     "EMAIL": "EMAIL_ADDRESS",
     "EMAIL_ADDRESS": "EMAIL_ADDRESS",
+    "MAIL": "EMAIL_ADDRESS",
     
+    # Phone entities
     "PHONE": "PHONE_NUMBER",
     "PHONE_NUMBER": "PHONE_NUMBER",
     "TEL": "PHONE_NUMBER",
     "TELEPHONE": "PHONE_NUMBER",
+    "MOBILE": "PHONE_NUMBER",
+    "CELL": "PHONE_NUMBER",
     
+    # Payment card entities
     "CREDIT_CARD": "CREDIT_CARD",
     "CREDIT": "CREDIT_CARD",
     "CC": "CREDIT_CARD",
     "PAYMENT_CARD": "CREDIT_CARD",
+    "CARD_NUMBER": "CREDIT_CARD",
     
+    # SSN entities
     "SSN": "SSN",
     "SOCIAL_SECURITY": "SSN",
+    "SOCIAL_SECURITY_NUMBER": "SSN",
     
+    # IP address entities
     "IP": "IP_ADDRESS",
     "IP_ADDRESS": "IP_ADDRESS",
+    "IPV4": "IP_ADDRESS",
+    "IPV6": "IP_ADDRESS",
     
+    # URL entities
     "URL": "URL",
     "URI": "URL",
     "WEBSITE": "URL",
     "LINK": "URL",
+    "WEB": "URL",
     
+    # Date entities
     "DATE": "DATE_TIME",
     "TIME": "DATE_TIME",
     "DATE_TIME": "DATE_TIME",
     "DATETIME": "DATE_TIME",
     
+    # Password entities
     "PASSWORD": "PASSWORD",
     "PWD": "PASSWORD",
     "PASSWD": "PASSWORD",
+    "PASSCODE": "PASSWORD",
     
+    # API key entities
     "API_KEY": "API_KEY",
     "APIKEY": "API_KEY",
     "KEY": "API_KEY",
+    "SECRET_KEY": "API_KEY",
     
+    # Token entities
     "TOKEN": "DEPLOY_TOKEN",
     "DEPLOY_TOKEN": "DEPLOY_TOKEN",
     "ACCESS_TOKEN": "DEPLOY_TOKEN",
     "SECRET_TOKEN": "DEPLOY_TOKEN",
+    "OAUTH_TOKEN": "DEPLOY_TOKEN",
     
+    # Authentication entities
     "AUTH": "AUTHENTICATION",
     "AUTHENTICATION": "AUTHENTICATION",
+    "BEARER": "AUTHENTICATION",
     
+    # Credential entities
     "CREDENTIAL": "CREDENTIAL",
     "LOGIN": "CREDENTIAL",
+    "USERNAME": "CREDENTIAL",
+    "USER": "CREDENTIAL",
     
+    # Financial entities
     "FINANCIAL": "FINANCIAL",
     "ACCOUNT": "FINANCIAL",
     "ROUTING": "FINANCIAL",
     "BANK": "FINANCIAL",
+    "ACCOUNT_NUMBER": "FINANCIAL",
+    "ROUTING_NUMBER": "FINANCIAL",
+    "CVV": "FINANCIAL",
+    "CVC": "FINANCIAL",
     
+    # Student ID entities
     "ROLL_NUMBER": "ROLL_NUMBER",
     "ENROLLMENT": "ROLL_NUMBER",
     "STUDENT_ID": "ROLL_NUMBER",
     
+    # Device entities
     "DEVICE": "DEVICE",
+    
+    # Product entities
     "PRODUCT": "PRODUCT",
+    
+    # ID number entities
+    "ID_NUMBER": "ID_NUMBER",
+    "DRIVER_LICENSE": "ID_NUMBER",
+    "PASSPORT": "ID_NUMBER",
+    "LICENSE_NUMBER": "ID_NUMBER",
+    
+    # Medical entities
+    "MEDICAL": "MEDICAL",
+    "PATIENT_ID": "MEDICAL",
+    "HEALTH_ID": "MEDICAL",
+    "MEDICAL_RECORD": "MEDICAL",
+    "MRN": "MEDICAL",
+    "PHN": "MEDICAL",
+    "DIAGNOSIS": "MEDICAL",
+    "CONDITION": "MEDICAL",
+    "PROCEDURE": "MEDICAL",
+    "HOSPITAL": "MEDICAL",
+    "PROVIDER_NUMBER": "MEDICAL",
     
     # Skip miscellaneous entities - they're often false positives
     "MISC": None,
+    "O": None,
 }
 
 # --- Masking Functions ---
@@ -420,6 +539,7 @@ def verify_entity(entity_type, text, confidence_score):
         "FINANCIAL": 0.7,     # Higher for financial data
         "ORGANIZATION": 0.7,  # Higher for organizations
         "DEVICE": 0.85,       # Very high for devices
+        "MEDICAL": 0.75       # Higher for medical data
     }
     
     min_confidence = type_confidence_thresholds.get(entity_type, CONFIG["confidence_threshold"])
@@ -567,18 +687,23 @@ def score_entity(entity: dict, text: str) -> float:
     if entity_type == "DEPLOY_TOKEN" and entity_text.startswith(('gh', 'gl')):
         score = min(1.0, score + 0.25)  # Boost GitHub/GitLab tokens
     
+    # Medical data has higher confidence if detected by the medical model
+    if entity_type == "MEDICAL" and entity.get('detector') == 'medical_pii':
+        score = min(1.0, score + 0.2)
+        
     # Higher confidence for entities with clear context indicators
     context_indicators = {
         "PASSWORD": ["password", "pwd", "pass"],
         "API_KEY": ["api", "key"],
         "DEPLOY_TOKEN": ["token", "deploy", "access"],
         "CREDENTIAL": ["login", "username", "user"],
+        "MEDICAL": ["patient", "medical", "health", "doctor", "hospital"]
     }
     
     if entity_type in context_indicators:
-        context = text[max(0, entity['start']-30):entity['start']]
+        context = text[max(0, entity['start']-30):entity['start']].lower()
         for indicator in context_indicators[entity_type]:
-            if indicator.lower() in context.lower():
+            if indicator.lower() in context:
                 score = min(1.0, score + 0.2)
                 break
     
@@ -671,7 +796,14 @@ def select_best_entity(entities: list, text: str) -> dict:
         return best
     
     # Otherwise, prioritize by score and other factors
-    detector_priority = {'regex': 3, 'presidio': 2, 'ner_tech': 1.5, 'ner_general': 1}
+    detector_priority = {
+        'regex': 3, 
+        'presidio': 2.5, 
+        'pii_specialized': 2.2,
+        'medical_pii': 2.0,
+        'ner_tech': 1.5, 
+        'ner_general': 1
+    }
     
     best_score = -1
     best_entity = None
@@ -694,7 +826,8 @@ def select_best_entity(entities: list, text: str) -> dict:
             "CREDENTIAL": 1.3,
             "FINANCIAL": 1.3,
             "SSN": 1.5,
-            "CREDIT_CARD": 1.4
+            "CREDIT_CARD": 1.4,
+            "MEDICAL": 1.4
         }
         type_boost = type_priority.get(entity['normalized_type'], 1)
         
@@ -705,6 +838,43 @@ def select_best_entity(entities: list, text: str) -> dict:
             best_entity = entity
     
     return best_entity
+
+# --- Ensemble Detection ---
+def run_model_detectors(text: str) -> list:
+    """Run all model-based entity detectors in parallel."""
+    all_entities = []
+    
+    with ThreadPoolExecutor(max_workers=CONFIG["max_workers"]) as executor:
+        futures = []
+        
+        # Add the core detectors
+        futures.append(executor.submit(get_presidio_entities, text))
+        futures.append(executor.submit(get_ner_entities, text, "ner_general"))
+        futures.append(executor.submit(get_ner_entities, text, "ner_tech"))
+        
+        # Add the specialized models if available
+        if "pii_specialized" in MODELS:
+            futures.append(executor.submit(get_ner_entities, text, "pii_specialized"))
+            
+        if "medical_pii" in MODELS:
+            futures.append(executor.submit(get_ner_entities, text, "medical_pii"))
+            
+        # Add the new medical model if available
+        if "medical_reports" in MODELS:
+            futures.append(executor.submit(get_ner_entities, text, "medical_reports"))
+        
+        # Add regex patterns (these are fast, so we can run them in parallel)
+        futures.append(executor.submit(get_regex_entities, text))
+        
+        # Collect results
+        for future in as_completed(futures):
+            try:
+                entities = future.result()
+                all_entities.extend(entities)
+            except Exception as e:
+                logger.error(f"Error in detector: {e}")
+                
+    return all_entities
 
 # --- Anonymization Function ---
 def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = True) -> str:
@@ -720,37 +890,24 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
     if pii_options:
         options.update(pii_options)
     
-    logger.info("Starting entity detection using multiple detectors...")
+    logger.info("Starting entity detection using multiple specialized models...")
+    start_time = time.time()
     
-    # Run detectors in parallel
-    with ThreadPoolExecutor(max_workers=CONFIG["max_workers"]) as executor:
-        future_to_detector = {
-            executor.submit(get_presidio_entities, text): "presidio",
-            executor.submit(get_ner_entities, text, "ner_general"): "ner_general", 
-            executor.submit(get_ner_entities, text, "ner_tech"): "ner_tech",
-            executor.submit(get_regex_entities, text): "regex"
-        }
-        
-        all_entities = []
-        for future in as_completed(future_to_detector):
-            detector = future_to_detector[future]
-            try:
-                entities = future.result()
-                logger.info(f"{detector} found {len(entities)} entities")
-                all_entities.extend(entities)
-            except Exception as e:
-                logger.error(f"Error in {detector}: {e}")
+    # Run entity detection
+    all_entities = run_model_detectors(text)
     
-    logger.info(f"Total entities detected before merging: {len(all_entities)}")
+    detection_time = time.time() - start_time
+    logger.info(f"Detection completed in {detection_time:.2f} seconds, found {len(all_entities)} potential entities")
     
     # Merge overlapping entities
     merged_entities = merge_overlapping_entities(all_entities, text)
-    logger.info(f"Entities after merging and validation: {len(merged_entities)}")
+    logger.info(f"Merged into {len(merged_entities)} distinct entities")
     
     # Sort entities in reverse order (to avoid index shifting during replacement)
     merged_entities.sort(key=lambda x: x['start'], reverse=True)
     
     # Apply redaction
+    redaction_count = 0
     for entity in merged_entities:
         start, end = entity['start'], entity['end']
         original_token = text[start:end]
@@ -777,8 +934,12 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
                 logger.error(f"Error masking token '{original_token}' of type {entity_type}: {e}")
                 masked = '*' * len(original_token)
                 
-            logger.debug(f"Masking token '{original_token}' ({entity_type}) to '{masked}'")
+            logger.debug(f"Masking '{original_token}' ({entity_type}) to '{masked}'")
             text = text[:start] + masked + text[end:]
+            redaction_count += 1
+    
+    total_time = time.time() - start_time
+    logger.info(f"Anonymization completed in {total_time:.2f} seconds, redacted {redaction_count} entities")
     
     return text
 
@@ -802,7 +963,11 @@ def anonymize():
     
     try:
         result = anonymize_text(input_text, pii_options, full_redaction)
-        return jsonify({"anonymized_text": result})
+        return jsonify({
+            "anonymized_text": result,
+            "timestamp": re.sub(r'[^0-9-: ]', '', "2025-03-01 18:27:39"),
+            "user": "rushilpatel21"
+        })
     except Exception as e:
         logger.error(f"Error processing request: {e}", exc_info=True)
         return jsonify({"error": f"Processing error: {str(e)}"}), 500
@@ -813,8 +978,9 @@ def health_check():
     return jsonify({
         "status": "ok", 
         "models_loaded": list(MODELS.keys()),
-        "version": "1.1.0",
-        "timestamp": re.sub(r'[^0-9-: ]', '', "2025-03-01 15:51:17")
+        "version": "2.0.0",
+        "timestamp": re.sub(r'[^0-9-: ]', '', "2025-03-01 18:27:39"),
+        "user": "rushilpatel21"
     })
 
 @app.route("/entities", methods=["POST"])
@@ -833,23 +999,20 @@ def detect_entities():
     input_text = data["text"]
     
     # Run detectors
-    entities = []
+    all_entities = run_model_detectors(input_text)
     
-    try:
-        presidio_entities = get_presidio_entities(input_text)
-        ner_general_entities = get_ner_entities(input_text, "ner_general")
-        ner_tech_entities = get_ner_entities(input_text, "ner_tech")
-        regex_entities = get_regex_entities(input_text)
-        
-        all_entities = presidio_entities + ner_general_entities + ner_tech_entities + regex_entities
-        
-        # Process entities for the response
-        entities = []
-        for entity in all_entities:
-            text_span = input_text[entity['start']:entity['end']]
-            entity_type = normalize_entity(entity)
-            score = score_entity(entity, input_text)
+    # Process entities for the response
+    entities = []
+    for entity in all_entities:
+        text_span = input_text[entity['start']:entity['end']]
+        entity_type = normalize_entity(entity)
+        if entity_type is None:
+            continue  # Skip entities with no normalized type
             
+        score = score_entity(entity, input_text)
+        
+        # Only include entities that pass verification
+        if verify_entity(entity_type, text_span, score):
             entities.append({
                 "text": text_span,
                 "type": entity_type,
@@ -857,18 +1020,34 @@ def detect_entities():
                 "detector": entity.get('detector', 'unknown')
             })
             
-        # Sort by confidence score
-        entities.sort(key=lambda x: x['score'], reverse=True)
-        
-    except Exception as e:
-        return jsonify({"error": f"Error detecting entities: {str(e)}"}), 500
+    # Sort by confidence score
+    entities.sort(key=lambda x: x['score'], reverse=True)
     
     return jsonify({"entities": entities})
+
+@app.route("/config", methods=["GET"])
+def get_config():
+    """Return the current configuration."""
+    if not app.debug:
+        return jsonify({"error": "This endpoint is only available in debug mode"}), 403
+        
+    return jsonify({
+        "config": CONFIG,
+        "models_loaded": list(MODELS.keys()),
+        "entity_types": sorted(list(set(ENTITY_TYPE_MAPPING.values()))),
+        "defaults": {
+            "threshold": CONFIG["confidence_threshold"],
+            "workers": CONFIG["max_workers"]
+        }
+    })
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     debug = os.environ.get("DEBUG", "False").lower() in ("true", "1", "t")
     host = "0.0.0.0" if not debug else "127.0.0.1"
     
-    print(f"Redactify API v1.1.0 is ready and serving on port {port}")
+    print(f"Redactify API v2.0.0 is ready and serving on port {port}")
+    print(f"Models loaded: {list(MODELS.keys())}")
+    print(f"Debug mode: {debug}")
+    
     app.run(debug=debug, port=port, host=host)

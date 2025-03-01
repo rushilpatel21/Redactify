@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaShieldAlt, FaCheck } from 'react-icons/fa';
+import { FaShieldAlt, FaCheck, FaStar } from 'react-icons/fa';
 import { HiCode } from 'react-icons/hi';
 import { MdSecurity, MdPersonOutline, MdOutlineEmail, MdPhone } from 'react-icons/md';
-import { BsBuilding, BsGeoAlt, BsCreditCard, BsCalendarDate, BsKey } from 'react-icons/bs';
+import { BsBuilding, BsGeoAlt, BsCreditCard, BsCalendarDate, BsKey, BsStars } from 'react-icons/bs';
 import { CgPassword } from 'react-icons/cg';
 import { TbWorldWww, TbNetwork } from 'react-icons/tb';
 import Swal from 'sweetalert2';
@@ -39,7 +39,7 @@ const Toast = Swal.mixin({
     toast.addEventListener('mouseleave', Swal.resumeTimer)
   },
   customClass: {
-    popup: 'swal-toast-popup',
+    popup: 'swal-toast-popup neubrutal-toast',
     title: 'swal-toast-title',
     icon: 'swal-toast-icon'
   }
@@ -145,6 +145,11 @@ function App() {
 
   return (
     <div className="app-container">
+      <div className="decorative-star star-1"><FaStar /></div>
+      <div className="decorative-star star-2"><BsStars /></div>
+      <div className="decorative-star star-3"><FaStar /></div>
+      <div className="decorative-star star-4"><BsStars /></div>
+      
       <motion.header 
         className="header"
         initial={{ opacity: 0, y: -20 }}
