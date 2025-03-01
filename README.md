@@ -9,6 +9,8 @@ Redactify is a comprehensive solution for detecting and anonymizing personally i
 
 ![Redactify Screenshot](Assets/Redactify.png)
 
+### PS : Still figuring out a way to host server for free. (There are some memory constraints on service providers like render)
+
 ## 🔍 Overview
 
 Redactify helps organizations comply with data privacy regulations by identifying and removing sensitive information from text. The platform uses a sophisticated multi-method detection approach combining machine learning models, rule-based patterns, and Microsoft's Presidio Analyzer to achieve high accuracy PII detection.
