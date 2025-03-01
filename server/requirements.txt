@@ -6,3 +6,4 @@ spacy==3.8.4
 regex==2024.11.6
 flask-cors==5.0.0
 python-dotenv==1.0.1
+gunicorn==21.2.0
