@@ -4,3 +4,4 @@ torch==2.5.1
 presidio-analyzer==2.2.357
 spacy==3.8.4
 regex==2024.11.6
+flask-cors==5.0.0

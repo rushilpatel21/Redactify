@@ -8,6 +8,7 @@ from urllib.parse import urlparse, urlunparse
 from flask import Flask, request, jsonify
 from transformers import pipeline
 from presidio_analyzer import AnalyzerEngine
+from flask_cors import CORS
 
 # --- Configuration ---
 # (These can be further externalized via environment variables or a separate config file)
@@ -313,6 +314,7 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
 
 # --- Flask API ---
 app = Flask(__name__)
+CORS(app, resources={r"/anonymize": {"origins": "http://localhost:5173"}})
 
 @app.route("/anonymize", methods=["POST"])
 def anonymize():

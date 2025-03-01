@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaShieldAlt, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { FaShieldAlt, FaCheck } from 'react-icons/fa';
 import { HiCode } from 'react-icons/hi';
 import { MdSecurity, MdPersonOutline, MdOutlineEmail, MdPhone } from 'react-icons/md';
 import { BsBuilding, BsGeoAlt, BsCreditCard, BsCalendarDate, BsKey } from 'react-icons/bs';
@@ -8,6 +8,8 @@ import { CgPassword } from 'react-icons/cg';
 import { TbWorldWww, TbNetwork } from 'react-icons/tb';
 import Swal from 'sweetalert2';
 import './App.css';
+
+const BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL || "";
 
 const piiTypes = [
   { id: "PERSON", icon: <MdPersonOutline /> },
@@ -62,7 +64,7 @@ function App() {
     
     setLoading(true);
     try {
-      const response = await fetch("/anonymize", {
+      const response = await fetch(`${BASE_URL}/anonymize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
