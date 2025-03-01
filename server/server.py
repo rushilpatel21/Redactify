@@ -20,7 +20,7 @@ load_dotenv()
 CONFIG = {
     "confidence_threshold": float(os.environ.get("CONFIDENCE_THRESHOLD", 0.65)),  # Base threshold
     "context_window": 5,  # Words to check for context around potential PII
-    "max_workers": int(os.environ.get("MAX_WORKERS", 4)),  # Thread pool size
+    "max_workers": int(os.environ.get("MAX_WORKERS", 8)),  # Thread pool size
     "use_specialized_models": os.environ.get("USE_SPECIALIZED_MODELS", "True").lower() == "true",
     "enable_medical_pii": os.environ.get("ENABLE_MEDICAL_PII", "True").lower() == "true"
 }
