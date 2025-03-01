@@ -27,6 +27,24 @@ const piiTypes = [
   { id: "ROLL_NUMBER", icon: <HiCode /> }
 ];
 
+// Toast configuration for SweetAlert2
+const Toast = Swal.mixin({
+  toast: true,
+  position: 'bottom',
+  showConfirmButton: false,
+  timer: 3000,
+  timerProgressBar: true,
+  didOpen: (toast) => {
+    toast.addEventListener('mouseenter', Swal.stopTimer)
+    toast.addEventListener('mouseleave', Swal.resumeTimer)
+  },
+  customClass: {
+    popup: 'swal-toast-popup',
+    title: 'swal-toast-title',
+    icon: 'swal-toast-icon'
+  }
+});
+
 function App() {
   const [inputText, setInputText] = useState("");
   const [outputText, setOutputText] = useState("");
@@ -46,18 +64,9 @@ function App() {
     e.preventDefault();
     
     if (!inputText.trim()) {
-      Swal.fire({
-        title: 'Empty Input',
-        text: 'Please enter some text to anonymize',
+      Toast.fire({
         icon: 'warning',
-        confirmButtonText: 'Got it',
-        confirmButtonColor: '#3f51b5',
-        background: '#fff',
-        customClass: {
-          popup: 'swal-custom-popup',
-          title: 'swal-title',
-          content: 'swal-content'
-        }
+        title: 'Please enter some text to anonymize',
       });
       return;
     }
@@ -78,42 +87,22 @@ function App() {
       const data = await response.json();
       if (data.anonymized_text) {
         setOutputText(data.anonymized_text);
-        Swal.fire({
-          title: 'Success!',
-          text: 'Your text has been anonymized',
+        Toast.fire({
           icon: 'success',
-          timer: 2000,
-          timerProgressBar: true,
-          showConfirmButton: false,
-          background: '#fff',
-          customClass: {
-            popup: 'swal-custom-popup',
-          }
+          title: 'Text anonymized successfully',
         });
       } else {
         setOutputText("Error: " + data.error);
-        Swal.fire({
-          title: 'Error',
-          text: data.error || 'Something went wrong',
+        Toast.fire({
           icon: 'error',
-          confirmButtonColor: '#3f51b5',
-          background: '#fff',
-          customClass: {
-            popup: 'swal-custom-popup',
-          }
+          title: data.error || 'Something went wrong',
         });
       }
     } catch (err) {
       setOutputText("An error occurred: " + err.message);
-      Swal.fire({
-        title: 'Error',
-        text: err.message,
+      Toast.fire({
         icon: 'error',
-        confirmButtonColor: '#3f51b5',
-        background: '#fff',
-        customClass: {
-          popup: 'swal-custom-popup',
-        }
+        title: err.message,
       });
     }
     setLoading(false);
@@ -124,6 +113,11 @@ function App() {
     
     navigator.clipboard.writeText(outputText).then(() => {
       setCopied(true);
+      Toast.fire({
+        icon: 'success',
+        title: 'Copied to clipboard',
+        timer: 1500,
+      });
       setTimeout(() => setCopied(false), 2000);
     });
   };

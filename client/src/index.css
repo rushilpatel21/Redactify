@@ -66,3 +66,41 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+.swal-toast-popup {
+  padding: 12px 20px !important;
+  width: auto !important;
+  max-width: 350px !important;
+  border-radius: 8px !important;
+  font-family: 'Inter', sans-serif !important;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15) !important;
+  margin-bottom: 16px !important;
+  background: #fff !important;
+}
+
+.swal-toast-title {
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+  color: var(--text-primary) !important;
+}
+
+.swal-toast-icon {
+  font-size: 1.1rem !important;
+  margin-right: 8px !important;
+}
+
+.swal2-success {
+  color: var(--success) !important;
+}
+
+.swal2-error {
+  color: var(--danger) !important;
+}
+
+.swal2-warning {
+  color: var(--warning) !important;
+}
+
+.swal2-timer-progress-bar {
+  background: rgba(63, 81, 181, 0.4) !important;
+}
