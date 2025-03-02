@@ -28,8 +28,8 @@ redactify/
 │   └── package.json
 │
 ├── server/          # Flask backend API
-│   ├── anonymizers/ # PII detection and anonymization logic
 │   ├── server.py    # Main API entry point
+│   ├── .env
 │   └── requirements.txt
 │
 └── README.md        # This file
