@@ -7,7 +7,9 @@
 
 Redactify is a comprehensive solution for detecting and anonymizing personally identifiable information (PII) in text documents. The application combines a modern React frontend with a powerful Python Flask backend to provide an intuitive and effective PII redaction service.
 
-![Redactify Screenshot](assets/Redactify.png)
+![Redactify Screenshot](assets/Redactify_1.png)
+![Redactify Screenshot](assets/Redactify_2.png)
+![Redactify Screenshot](assets/Redactify_3.png)
 
 ### PS : Still figuring out a way to host server for free. (There are some memory constraints on service providers like render)
 
