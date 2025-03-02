@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaShieldAlt, FaCheck, FaStar } from 'react-icons/fa';
-import { HiCode } from 'react-icons/hi';
-import { MdSecurity, MdPersonOutline, MdOutlineEmail, MdPhone } from 'react-icons/md';
-import { BsBuilding, BsGeoAlt, BsCreditCard, BsCalendarDate, BsKey, BsStars } from 'react-icons/bs';
+import { FaShieldAlt, FaCheck, FaStar, FaKey, FaFingerprint, FaHospital, FaMedkit } from 'react-icons/fa';
+import { HiCode, HiLockClosed } from 'react-icons/hi';
+import { MdSecurity, MdPersonOutline, MdOutlineEmail, MdPhone, MdDevices, MdCreditCard } from 'react-icons/md';
+import { BsBuilding, BsGeoAlt, BsCreditCard, BsCalendarDate, BsKey, BsStars, BsCash } from 'react-icons/bs';
 import { CgPassword } from 'react-icons/cg';
-import { TbWorldWww, TbNetwork } from 'react-icons/tb';
+import { TbWorldWww, TbNetwork, TbId } from 'react-icons/tb';
+import { RiMoneyDollarCircleLine, RiUserSettingsFill } from 'react-icons/ri';
 import Swal from 'sweetalert2';
 import './App.css';
 
@@ -24,7 +25,14 @@ const piiTypes = [
   { id: "DATE_TIME", icon: <BsCalendarDate /> },
   { id: "PASSWORD", icon: <CgPassword /> },
   { id: "API_KEY", icon: <BsKey /> },
-  { id: "ROLL_NUMBER", icon: <HiCode /> }
+  { id: "DEPLOY_TOKEN", icon: <FaKey /> },
+  { id: "AUTHENTICATION", icon: <HiLockClosed /> },
+  { id: "FINANCIAL", icon: <RiMoneyDollarCircleLine /> },
+  { id: "CREDENTIAL", icon: <FaFingerprint /> },
+  { id: "ROLL_NUMBER", icon: <HiCode /> },
+  { id: "DEVICE", icon: <MdDevices /> },
+  { id: "MEDICAL", icon: <FaMedkit /> },
+  { id: "ID_NUMBER", icon: <TbId /> }
 ];
 
 // Toast configuration for SweetAlert2
