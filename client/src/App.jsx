@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaShieldAlt, FaCheck } from 'react-icons/fa';
-import { HiCode } from 'react-icons/hi';
-import { MdSecurity, MdPersonOutline, MdOutlineEmail, MdPhone } from 'react-icons/md';
-import { BsBuilding, BsGeoAlt, BsCreditCard, BsCalendarDate, BsKey } from 'react-icons/bs';
+import { FaShieldAlt, FaCheck, FaStar, FaKey, FaFingerprint, FaMedkit } from 'react-icons/fa';
+import { HiCode, HiLockClosed } from 'react-icons/hi';
+import { MdSecurity, MdPersonOutline, MdOutlineEmail, MdPhone, MdDevices } from 'react-icons/md';
+import { BsBuilding, BsGeoAlt, BsCreditCard, BsCalendarDate, BsKey, BsStars } from 'react-icons/bs';
 import { CgPassword } from 'react-icons/cg';
-import { TbWorldWww, TbNetwork } from 'react-icons/tb';
+import { TbWorldWww, TbNetwork, TbId } from 'react-icons/tb';
+import { RiMoneyDollarCircleLine } from 'react-icons/ri';
 import Swal from 'sweetalert2';
 import './App.css';
 
@@ -24,7 +25,14 @@ const piiTypes = [
   { id: "DATE_TIME", icon: <BsCalendarDate /> },
   { id: "PASSWORD", icon: <CgPassword /> },
   { id: "API_KEY", icon: <BsKey /> },
-  { id: "ROLL_NUMBER", icon: <HiCode /> }
+  { id: "DEPLOY_TOKEN", icon: <FaKey /> },
+  { id: "AUTHENTICATION", icon: <HiLockClosed /> },
+  { id: "FINANCIAL", icon: <RiMoneyDollarCircleLine /> },
+  { id: "CREDENTIAL", icon: <FaFingerprint /> },
+  { id: "ROLL_NUMBER", icon: <HiCode /> },
+  { id: "DEVICE", icon: <MdDevices /> },
+  { id: "MEDICAL", icon: <FaMedkit /> },
+  { id: "ID_NUMBER", icon: <TbId /> }
 ];
 
 // Toast configuration for SweetAlert2
@@ -39,7 +47,7 @@ const Toast = Swal.mixin({
     toast.addEventListener('mouseleave', Swal.resumeTimer)
   },
   customClass: {
-    popup: 'swal-toast-popup',
+    popup: 'swal-toast-popup neubrutal-toast',
     title: 'swal-toast-title',
     icon: 'swal-toast-icon'
   }
@@ -145,6 +153,11 @@ function App() {
 
   return (
     <div className="app-container">
+      <div className="decorative-star star-1"><FaStar /></div>
+      <div className="decorative-star star-2"><BsStars /></div>
+      <div className="decorative-star star-3"><FaStar /></div>
+      <div className="decorative-star star-4"><BsStars /></div>
+      
       <motion.header 
         className="header"
         initial={{ opacity: 0, y: -20 }}
