@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaShieldAlt, FaCheck, FaStar, FaKey, FaFingerprint, FaHospital, FaMedkit } from 'react-icons/fa';
+import { FaShieldAlt, FaCheck, FaStar, FaKey, FaFingerprint, FaMedkit } from 'react-icons/fa';
 import { HiCode, HiLockClosed } from 'react-icons/hi';
-import { MdSecurity, MdPersonOutline, MdOutlineEmail, MdPhone, MdDevices, MdCreditCard } from 'react-icons/md';
-import { BsBuilding, BsGeoAlt, BsCreditCard, BsCalendarDate, BsKey, BsStars, BsCash } from 'react-icons/bs';
+import { MdSecurity, MdPersonOutline, MdOutlineEmail, MdPhone, MdDevices } from 'react-icons/md';
+import { BsBuilding, BsGeoAlt, BsCreditCard, BsCalendarDate, BsKey, BsStars } from 'react-icons/bs';
 import { CgPassword } from 'react-icons/cg';
 import { TbWorldWww, TbNetwork, TbId } from 'react-icons/tb';
-import { RiMoneyDollarCircleLine, RiUserSettingsFill } from 'react-icons/ri';
+import { RiMoneyDollarCircleLine } from 'react-icons/ri';
 import Swal from 'sweetalert2';
 import './App.css';
 

@@ -18,20 +18,40 @@ load_dotenv()
 
 # --- Configuration ---
 CONFIG = {
-    "confidence_threshold": float(os.environ.get("CONFIDENCE_THRESHOLD", 0.65)),  # Base threshold
-    "context_window": 5,  # Words to check for context around potential PII
+    "confidence_threshold": float(os.environ.get("CONFIDENCE_THRESHOLD", 0.68)),  # Increased base threshold
+    "context_window": 6,  # Increased context window for better accuracy
     "max_workers": int(os.environ.get("MAX_WORKERS", 8)),  # Thread pool size
     "use_specialized_models": os.environ.get("USE_SPECIALIZED_MODELS", "True").lower() == "true",
-    "enable_medical_pii": os.environ.get("ENABLE_MEDICAL_PII", "True").lower() == "true"
+    "enable_medical_pii": os.environ.get("ENABLE_MEDICAL_PII", "True").lower() == "true",
+    "partial_mask_char": "*",  # Character used for partial masking
+    "preserve_formatting": True  # Preserve formatting in redacted output
 }
 
-# Common terms that are often false positives
+# Common terms that should not be redacted (expanded list)
 BLOCKLIST = {
-    "Submitted", "Customer", "Issue Description", "Order Number", 
-    "Account", "confirmation", "attempts", "reference", "Description",
-    "screenshots", "communication", "Number", "Information", "Details"
+    "Submitted", "Customer", "Issue Description", "Order Number", "Account", 
+    "Confirmation", "Attempts", "Reference", "Description", "Screenshots", 
+    "Communication", "Number", "Information", "Details", "Subject", "Team",
+    "Project", "Request", "Update", "From", "Hi", "Hello", "Dear", "Regards",
+    "Best", "Thanks", "Thank you", "Report", "Board", "Contract", "Company",
+    "Office", "Employee", "Manager", "Director", "VP", "CEO", "CTO", "CFO",
+    "Approved by", "Case Priority", "High", "Medium", "Low", "Internal",
+    "External", "Technical", "Model", "Device", "CONFIDENTIAL", "Support",
+    "Ticket", "Date", "Phone", "Email", "Contact", "BILLING", "INFORMATION",
+    "Expiration", "Security", "Code", "CVV", "DEVICE", "DETAILS", "NOTES",
+    "Alternate", "HISTORY", "STATUS", "EMPLOYEE", "Priority"
 }
 
+# Add common name words that shouldn't be redacted on their own
+COMMON_NAME_WORDS = {
+    "Best", "Approved", "Location", "Contact", "Technical", "Internal",
+    "University", "City", "State", "Country", "Street", "Avenue", "Street",
+    "Customer", "Support", "Service", "Sales", "Marketing", "Priority", "Status"
+}
+
+BLOCKLIST.update(COMMON_NAME_WORDS)
+
+# PII options with normalized categories
 DEFAULT_PII_OPTIONS = {
     "PERSON": True,
     "ORGANIZATION": True,
@@ -51,11 +71,12 @@ DEFAULT_PII_OPTIONS = {
     "CREDENTIAL": True,
     "ROLL_NUMBER": True,
     "DEVICE": True,
-    "MEDICAL": True,  # Added medical PII category
-    "ID_NUMBER": True  # Added ID number category
+    "MEDICAL": True,
+    "ID_NUMBER": True,
+    "MAC_ADDRESS": True  # Added specific MAC address category
 }
 
-# Types to pseudonymize in full redaction mode
+# Types to pseudonymize in full redaction mode (normalized)
 PSEUDONYMIZE_TYPES = {
     "PERSON", "ORGANIZATION", "LOCATION", "EMAIL_ADDRESS", 
     "API_KEY", "DEPLOY_TOKEN", "AUTHENTICATION", "MEDICAL"
@@ -82,19 +103,19 @@ def load_models():
         )
         logger.info("Loaded general NER model")
         
-        # 2. Try to load specialized PII detection model
+        # 2. Specialized PII detection model
         if CONFIG["use_specialized_models"]:
             try:
                 models["pii_specialized"] = pipeline(
                     "ner",
-                    model="1-13-am/xlm-roberta-base-pii-finetuned",  # Updated model
+                    model="1-13-am/xlm-roberta-base-pii-finetuned",
                     aggregation_strategy="simple"
                 )
                 logger.info("Loaded specialized PII detection model")
             except Exception as e:
                 logger.warning(f"Could not load specialized PII model: {e}")
         
-        # 3. Try to load medical PII models if enabled
+        # 3. Medical PII models if enabled
         if CONFIG["enable_medical_pii"]:
             try:
                 models["medical_pii"] = pipeline(
@@ -106,7 +127,7 @@ def load_models():
             except Exception as e:
                 logger.warning(f"Could not load medical PII model: {e}")
                 
-            # Add the additional medical model
+            # Additional medical model
             try:
                 models["medical_reports"] = pipeline(
                     "ner",
@@ -117,7 +138,7 @@ def load_models():
             except Exception as e:
                 logger.warning(f"Could not load medical reports NER model: {e}")
                 
-        # 4. Try to load a technical NER model
+        # 4. Technical NER model
         try:
             models["ner_tech"] = pipeline(
                 "ner",
@@ -152,39 +173,53 @@ REGEX_PATTERNS = [
     # IP address patterns
     {"type": "IP_ADDRESS", "pattern": r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "context": ["ip", "address", "server", "host"]},
     
+    # MAC address patterns - new and improved
+    {"type": "MAC_ADDRESS", "pattern": r"\b([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b", "context": []},
+    {"type": "MAC_ADDRESS", "pattern": r"\b([0-9A-Fa-f]{2}[.]){5}[0-9A-Fa-f]{2}\b", "context": ["mac", "address", "ethernet"]},
+    
     # URL patterns
     {"type": "URL", "pattern": r"\bhttps?://[^\s]+\b", "context": []},
     {"type": "URL", "pattern": r"\b(?:www\.)[a-z0-9-]+(?:\.[a-z]{2,})+(?:/[^\s]*)?", "context": []},
+    {"type": "URL", "pattern": r"\b[a-z0-9-]+\.[a-z0-9-]+\.[a-z]{2,}(?:/[^\s]*)?", "context": ["http", "https", "web", "site", "portal", "access"]},
     
-    # Date patterns - expanded and more precise
-    {"type": "DATE_TIME", "pattern": r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b", "context": ["date", "on", "as of", "effective"]},
+    # Date patterns - improved formatting detection
+    {"type": "DATE_TIME", "pattern": r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b", "context": []},
     {"type": "DATE_TIME", "pattern": r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}\b", "context": []},
     {"type": "DATE_TIME", "pattern": r"\b\d{1,2}/\d{2}\b", "context": ["exp", "expiration", "valid", "until"]},  # MM/YY format
     {"type": "DATE_TIME", "pattern": r"\b\d{4}-\d{2}-\d{2}\b", "context": []},  # YYYY-MM-DD format
-    {"type": "DATE_TIME", "pattern": r"\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\b", "context": []},  # YYYY-MM-DD HH:MM:SS
+    {"type": "DATE_TIME", "pattern": r"\b\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}\b", "context": []},  # YYYY-MM-DD HH:MM:SS
+    {"type": "DATE_TIME", "pattern": r"\b\d{2}/\d{2}/\d{4}\b", "context": []},  # MM/DD/YYYY format
     
-    # Phone number patterns
+    # Phone number patterns - improved
     {"type": "PHONE_NUMBER", "pattern": r"\b\d{10}\b", "context": ["phone", "mobile", "cell", "tel", "telephone", "contact"]},
     {"type": "PHONE_NUMBER", "pattern": r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b", "context": []},
     {"type": "PHONE_NUMBER", "pattern": r"\(\d{3}\)\s*\d{3}[-.\s]?\d{4}\b", "context": []},
+    {"type": "PHONE_NUMBER", "pattern": r"\+\d{1,3}[-.\s]?\d{3}[-.\s]?\d{3,4}[-.\s]?\d{3,4}", "context": []},  # International format
     
     # Password patterns - improved precision
     {"type": "PASSWORD", "pattern": r"(?i)(?:password|passwd|pwd)(?::|=|\s+is\s+)\s*(\S+)", "context": []},
     {"type": "PASSWORD", "pattern": r"(?i)password(?:\s+was|\s+has\s+been)?\s+(?:reset|changed)(?:\s+to)?\s+(\S+)", "context": []},
-    # Only detect complex passwords with clear context
     {"type": "PASSWORD", "pattern": r"(?=.*[A-Za-z])(?=.*\d)(?=.*[$#@!%^&*()_+])[A-Za-z\d$#@!%^&*()_+]{8,}", 
-     "context": ["password", "pass", "pwd", "credential", "login", "auth", "secret"]},
+     "context": ["password", "pass", "pwd", "credential", "login", "auth", "secret", "temporary", "temp"]},
     
-    # Credit card patterns
-    {"type": "CREDIT_CARD", "pattern": r"\b(?:\d{4}[- ]?){3}\d{4}\b", "context": ["credit", "card", "visa", "mastercard", "amex"]},
+    # Credit card patterns - improved
+    {"type": "CREDIT_CARD", "pattern": r"\b(?:\d{4}[- ]?){3}\d{4}\b", "context": []},
     {"type": "CREDIT_CARD", "pattern": r"\b\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\b", "context": []},
+    {"type": "CREDIT_CARD", "pattern": r"credit card:?\s*\**\d{4}", "context": []},  # Last 4 digits with prefix
+    
+    # CVV/CVC patterns - improved
+    {"type": "FINANCIAL", "pattern": r"\bCVV:?\s*(\d{3,4})\b", "context": []},
+    {"type": "FINANCIAL", "pattern": r"\bCVC:?\s*(\d{3,4})\b", "context": []},
+    {"type": "FINANCIAL", "pattern": r"\bsecurity\s+code:?\s*(\d{3,4})\b", "context": []},
     
     # API key patterns - enhanced
     {"type": "API_KEY", "pattern": r"(?i)api[_-]?key(?::|=|\s+is\s+)\s*([A-Za-z0-9\-_\.]{8,})\b", "context": []},
     {"type": "API_KEY", "pattern": r"(?i)(?:api|app|access)[_-]?(?:key|token|secret|id)(?::|=|\s+is\s+)\s*\S+", "context": []},
-    # Only match long alphanumeric strings if there's context
     {"type": "API_KEY", "pattern": r"\b[A-Za-z0-9_\-]{20,40}\b", 
      "context": ["api", "key", "secret", "token", "auth", "access", "credentials"]},
+    
+    # JWT/Auth token patterns - improved
+    {"type": "AUTHENTICATION", "pattern": r"ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]*", "context": []},  # JWT format
     
     # Deploy token patterns
     {"type": "DEPLOY_TOKEN", "pattern": r"gh[pousr]_[A-Za-z0-9_]{16,}\b", "context": []},  # GitHub tokens
@@ -194,6 +229,7 @@ REGEX_PATTERNS = [
     {"type": "AUTHENTICATION", "pattern": r"(?i)(?:bearer|basic|digest|oauth)[_-]?token(?::|=|\s+is\s+)\s*\S+", "context": []},
     {"type": "AUTHENTICATION", "pattern": r"(?i)auth(?:entication)?(?::|=|\s+is\s+)\s*\S+", "context": []},
     {"type": "AUTHENTICATION", "pattern": r"(?i)credential(?:s)?(?::|=|\s+is\s+)\s*\S+", "context": []},
+    {"type": "AUTHENTICATION", "pattern": r"session\s+key:?\s*\S+", "context": []},  # Session keys
     
     # Financial information - enhanced with card details
     {"type": "FINANCIAL", "pattern": r"\brouting[:\s]+(\d{9})\b", "context": []},
@@ -201,8 +237,10 @@ REGEX_PATTERNS = [
     {"type": "FINANCIAL", "pattern": r"\b(?:account|acct)(?:.+?)ending in (\d{4})\b", "context": []},
     {"type": "FINANCIAL", "pattern": r"ending in \d{4}", "context": ["card", "account"]},
     {"type": "FINANCIAL", "pattern": r"card \(ending in \d{4}", "context": []},
-    {"type": "FINANCIAL", "pattern": r"\bCVV:?\s*(\d{3,4})\b", "context": []},
-    {"type": "FINANCIAL", "pattern": r"\bCVC:?\s*(\d{3,4})\b", "context": []},
+    
+    # Bank account numbers
+    {"type": "FINANCIAL", "pattern": r"(?:bank|checking|savings)\s+account:?\s*(\d{8,})", "context": []},
+    {"type": "FINANCIAL", "pattern": r"routing\s+number:?\s*(\d{8,})", "context": []},
     
     # Student roll number patterns
     {"type": "ROLL_NUMBER", "pattern": r"\b\d{2}[A-Za-z]{3}\d{3}\b", "context": ["student", "roll", "enrollment"]},
@@ -213,24 +251,30 @@ REGEX_PATTERNS = [
     {"type": "CREDENTIAL", "pattern": r"\blogin[:\s]+(\S+)\b", "context": []},
     {"type": "CREDENTIAL", "pattern": r"\buser(?:name)?[:\s]+(\S+)\b", "context": []},
     
-    # Device information
-    {"type": "DEVICE", "pattern": r"(?:iPhone|iPad|MacBook|Android|Windows|Device)(?:\s+\w+){0,2}", 
-     "context": ["IP", "device", "login", "from"]},
+    # Device information - improved
+    {"type": "DEVICE", "pattern": r"(?:iPhone|iPad|MacBook|Android|Windows|Device)\s+(?:\w+\s+)?\w+", 
+     "context": ["device", "model", "using", "on"]},
+    {"type": "DEVICE", "pattern": r"Serial\s+Number:?\s+([A-Z0-9]{5,})", "context": []},
     
-    # Order/Account identifiers - more specific to avoid false positives
-    {"type": "CREDENTIAL", "pattern": r"(?:Order|Account|Invoice)(?:\s+(?:Number|#|ID|No\.?)):\s*([A-Za-z0-9\-]+)", 
-     "context": ["order", "account", "#", "number"]},
+    # Order/Account identifiers - improved specificity
+    {"type": "ID_NUMBER", "pattern": r"(?:Order|Invoice)(?:\s+(?:Number|#|ID|No\.?)):\s*([A-Za-z0-9\-]+)", "context": []},
+    {"type": "ID_NUMBER", "pattern": r"(?:Customer|Account)(?:\s+(?:ID|#|No\.?)):\s*([A-Za-z0-9\-]+)", 
+     "context": ["customer", "account", "id", "number"]},
      
     # Medical record identifiers
     {"type": "MEDICAL", "pattern": r"\b(?:patient|medical|health|record)\s+(?:id|number|#):\s*([A-Za-z0-9\-]+)", "context": []},
     {"type": "MEDICAL", "pattern": r"\b(?:MRN|PHN)(?::|#|\s+number)?\s*:?\s*([A-Za-z0-9\-]+)", "context": []},
+    {"type": "MEDICAL", "pattern": r"Medical Insurance ID:?\s*([A-Za-z0-9\-]+)", "context": []},
+    {"type": "MEDICAL", "pattern": r"Provider ID:?\s*([A-Za-z0-9\-]+)", "context": []},
     
     # ID numbers and government identifiers
     {"type": "ID_NUMBER", "pattern": r"\b(?:passport|driver|license|id)\s+(?:number|#):\s*([A-Za-z0-9\-]+)", "context": []},
     {"type": "ID_NUMBER", "pattern": r"\b[A-Z]{1,2}[0-9]{6,9}\b", "context": ["passport", "government", "license", "identification"]},
+    {"type": "ID_NUMBER", "pattern": r"Employee\s+ID:?\s*([A-Za-z0-9\-]+)", "context": []},
 ]
 
 # --- Entity Normalization and Mapping ---
+# Simplified and normalized entity type mapping
 ENTITY_TYPE_MAPPING = {
     # Person entities
     "PERSON": "PERSON",
@@ -239,7 +283,10 @@ ENTITY_TYPE_MAPPING = {
     "PERSONAL": "PERSON",
     "INDIVIDUAL": "PERSON",
     "NAME": "PERSON",
+    "NAME_STUDENT": "PERSON",
     "PATIENT": "PERSON",
+    "STAFF": "PERSON",
+    "DOCTOR": "PERSON",
     
     # Organization entities
     "ORG": "ORGANIZATION",
@@ -247,6 +294,8 @@ ENTITY_TYPE_MAPPING = {
     "COMPANY": "ORGANIZATION",
     "CORPORATION": "ORGANIZATION",
     "BUSINESS": "ORGANIZATION",
+    "PATORG": "ORGANIZATION",
+    "HOSP": "ORGANIZATION",
     
     # Location entities
     "LOC": "LOCATION",
@@ -280,6 +329,7 @@ ENTITY_TYPE_MAPPING = {
     "CC": "CREDIT_CARD",
     "PAYMENT_CARD": "CREDIT_CARD",
     "CARD_NUMBER": "CREDIT_CARD",
+    "PAN": "CREDIT_CARD",
     
     # SSN entities
     "SSN": "SSN",
@@ -291,6 +341,10 @@ ENTITY_TYPE_MAPPING = {
     "IP_ADDRESS": "IP_ADDRESS",
     "IPV4": "IP_ADDRESS",
     "IPV6": "IP_ADDRESS",
+    
+    # MAC address entities
+    "MAC": "MAC_ADDRESS",
+    "MAC_ADDRESS": "MAC_ADDRESS",
     
     # URL entities
     "URL": "URL",
@@ -328,6 +382,7 @@ ENTITY_TYPE_MAPPING = {
     "AUTH": "AUTHENTICATION",
     "AUTHENTICATION": "AUTHENTICATION",
     "BEARER": "AUTHENTICATION",
+    "SESSION": "AUTHENTICATION",
     
     # Credential entities
     "CREDENTIAL": "CREDENTIAL",
@@ -361,6 +416,7 @@ ENTITY_TYPE_MAPPING = {
     "DRIVER_LICENSE": "ID_NUMBER",
     "PASSPORT": "ID_NUMBER",
     "LICENSE_NUMBER": "ID_NUMBER",
+    "ID": "ID_NUMBER",
     
     # Medical entities
     "MEDICAL": "MEDICAL",
@@ -383,89 +439,226 @@ ENTITY_TYPE_MAPPING = {
 # --- Masking Functions ---
 
 def pseudonymize_value(value: str, entity_type: str) -> str:
-    """Generate a hash-based pseudonym (first 6 hex digits) for a given value."""
+    """Generate a consistent hash-based pseudonym for a given value."""
     h = hashlib.md5(value.encode('utf-8')).hexdigest()[:6]
     return f"[{entity_type}-{h}]"
 
 def full_mask_token(token: str, entity_type: str) -> str:
-    """For full redaction: return the hash‐based pseudonym."""
+    """For full redaction: return the hash‐based pseudonym with normalized entity type."""
     if entity_type is None:
         return '*' * len(token)
     return pseudonymize_value(token, entity_type.upper())
 
 def partial_mask_token(token: str) -> str:
     """
-    Partially mask a token by preserving first 2 and last 3 characters.
-    For shorter tokens, use appropriate masking strategy.
+    Improved partial masking function that preserves more meaningful parts
+    of the token based on its length and type.
     """
     n = len(token)
-    if n > 8:
-        return token[:2] + '*' * (n - 5) + token[-3:]
-    elif n > 5:
-        return token[:1] + '*' * (n - 3) + token[-2:]
+    mask_char = CONFIG["partial_mask_char"]
+    
+    # Handle very short tokens
+    if n <= 2:
+        return mask_char * n
+    
+    # Handle short tokens (3-5 chars)
+    elif n <= 5:
+        return token[0] + mask_char * (n - 1)
+    
+    # Handle medium tokens (6-10 chars)
+    elif n <= 10:
+        return token[0:2] + mask_char * (n - 4) + token[-2:]
+    
+    # Handle longer tokens
     else:
-        return '*' * n
+        return token[0:2] + mask_char * (n - 5) + token[-3:]
 
 def mask_email(email: str) -> str:
     """
-    Mask an email address by splitting it into local and domain parts.
-    Local part: if >4 chars, preserve first 2 and last 2, mask the middle.
-    Domain: mask everything before the last dot.
+    Improved email address masking that preserves some recognizability
+    while ensuring privacy.
     """
     try:
         local, domain = email.split("@")
     except Exception as e:
         logger.error(f"Error splitting email '{email}': {e}")
-        return '*' * len(email)
+        return partial_mask_token(email)
     
+    # Mask local part
     if len(local) > 4:
-        local_masked = local[:2] + '*' * (len(local) - 4) + local[-2:]
+        local_masked = local[0:2] + CONFIG["partial_mask_char"] * (len(local) - 4) + local[-2:]
     else:
-        local_masked = '*' * len(local)
-    if '.' in domain:
-        last_dot = domain.rfind('.')
-        domain_name = domain[:last_dot]
-        tld = domain[last_dot:]
-        domain_masked = '*' * len(domain_name) + tld
+        local_masked = local[0] + CONFIG["partial_mask_char"] * (len(local) - 1)
+    
+    # Mask domain part
+    domain_parts = domain.split('.')
+    
+    if len(domain_parts) > 1:
+        # Preserve the TLD (e.g., .com, .org)
+        tld = domain_parts[-1]
+        domain_name = '.'.join(domain_parts[:-1])
+        
+        if len(domain_name) > 5:
+            domain_masked = domain_name[0:2] + CONFIG["partial_mask_char"] * (len(domain_name) - 2)
+        else:
+            domain_masked = CONFIG["partial_mask_char"] * len(domain_name)
+            
+        masked_domain = domain_masked + '.' + tld
     else:
-        domain_masked = '*' * len(domain)
-    return local_masked + "@" + domain_masked
+        masked_domain = CONFIG["partial_mask_char"] * len(domain)
+    
+    return local_masked + "@" + masked_domain
 
 def mask_url(url: str) -> str:
-    """
-    For full redaction: return a hash-based pseudonym for the URL.
-    """
+    """For full redaction: return a hash-based pseudonym for the URL."""
     return full_mask_token(url, "URL")
 
 def partial_mask_url(url: str) -> str:
-    """Partially mask a URL by processing its domain and path."""
+    """
+    Improved URL masking that preserves structure but masks
+    private information within domains and paths.
+    """
     try:
         parsed = urlparse(url)
     except Exception as e:
         logger.error(f"Error parsing URL '{url}': {e}")
-        return '*' * len(url)
+        return partial_mask_token(url)
+        
     scheme, netloc, path, params, query, fragment = (
         parsed.scheme, parsed.netloc, parsed.path, parsed.params, parsed.query, parsed.fragment
     )
+    
     # Process netloc (handle port numbers)
     if ':' in netloc:
         domain, port = netloc.split(':', 1)
         port = ':' + port
     else:
         domain, port = netloc, ''
+    
+    # Process domain parts
     parts = domain.split('.')
     masked_parts = []
-    for part in parts:
-        if len(part) >= 6:
-            masked_parts.append(part[:2] + "*" * (len(part)-5) + part[-3:])
+    
+    for i, part in enumerate(parts):
+        # Keep the TLD intact if it's the last part
+        if i == len(parts) - 1 and len(parts) > 1:
+            masked_parts.append(part)
+        # Mask subdomain and domain parts
+        elif len(part) > 3:
+            masked_parts.append(part[0:2] + CONFIG["partial_mask_char"] * (len(part) - 2))
         else:
-            masked_parts.append('*' * len(part))
+            masked_parts.append(CONFIG["partial_mask_char"] * len(part))
+    
     masked_netloc = '.'.join(masked_parts) + port
-    # Process path segments
-    path_segments = path.split('/')
-    masked_segments = [partial_mask_token(seg) if seg and len(seg) >= 3 else seg for seg in path_segments]
-    masked_path = '/'.join(masked_segments)
+    
+    # Process path segments (more carefully)
+    if path:
+        path_segments = path.split('/')
+        masked_segments = []
+        
+        for segment in path_segments:
+            if not segment:  # Handle empty segments
+                masked_segments.append(segment)
+                continue
+                
+            # Keep common path elements like 'api', 'dashboard', etc.
+            if segment.lower() in ['api', 'v1', 'v2', 'v3', 'dashboard', 'login', 'public', 'static']:
+                masked_segments.append(segment)
+            elif len(segment) >= 5:
+                masked_segments.append(segment[0:2] + CONFIG["partial_mask_char"] * (len(segment) - 2))
+            else:
+                masked_segments.append(CONFIG["partial_mask_char"] * len(segment))
+                
+        masked_path = '/'.join(masked_segments)
+    else:
+        masked_path = path
+    
+    # Don't mask query parameters and fragments for simplicity
     return urlunparse((scheme, masked_netloc, masked_path, params, query, fragment))
+
+def mask_phone(phone: str) -> str:
+    """Specialized function for partial masking of phone numbers."""
+    # Remove common formatting characters
+    digits_only = re.sub(r'[^0-9+]', '', phone)
+    
+    if len(digits_only) <= 4:
+        return CONFIG["partial_mask_char"] * len(phone)
+    
+    # Handle international prefix if present
+    if digits_only.startswith('+'):
+        prefix_end = digits_only.find('9')
+        if prefix_end != -1 and prefix_end < 4:  # Valid country code
+            prefix = digits_only[:prefix_end+1]
+            main_number = digits_only[prefix_end+1:]
+        else:
+            prefix = '+'
+            main_number = digits_only[1:]
+    else:
+        prefix = ''
+        main_number = digits_only
+    
+    # Keep last 4 digits visible, mask the rest
+    if len(main_number) > 4:
+        masked_number = CONFIG["partial_mask_char"] * (len(main_number) - 4) + main_number[-4:]
+    else:
+        masked_number = CONFIG["partial_mask_char"] * len(main_number)
+    
+    # Reconstruct with original formatting
+    masked_digits = prefix + masked_number
+    
+    # Reapply original format
+    result = ''
+    digit_index = 0
+    for char in phone:
+        if char.isdigit() or char == '+':
+            result += masked_digits[digit_index]
+            digit_index += 1
+        else:
+            result += char  # Preserve formatting characters
+    
+    return result
+
+def smart_partial_mask(text: str, entity_type: str) -> str:
+    """
+    Apply the appropriate partial masking strategy based on entity type.
+    This ensures consistent masking across different PII types.
+    """
+    if not text:
+        return text
+        
+    # Apply specialized masking based on entity type
+    if entity_type == "EMAIL_ADDRESS":
+        return mask_email(text)
+    elif entity_type == "URL":
+        return partial_mask_url(text)
+    elif entity_type == "PHONE_NUMBER":
+        return mask_phone(text)
+    elif entity_type == "CREDIT_CARD":
+        # Only show last 4 digits for credit cards
+        digits_only = re.sub(r'[^0-9]', '', text)
+        if len(digits_only) >= 4:
+            return CONFIG["partial_mask_char"] * (len(text) - 4) + text[-4:]
+    elif entity_type == "SSN":
+        # Format like ***-**-1234 (last 4 visible)
+        if len(text) > 4:
+            return CONFIG["partial_mask_char"] * (len(text) - 4) + text[-4:]
+    elif entity_type in ["PASSWORD", "API_KEY", "AUTHENTICATION", "DEPLOY_TOKEN"]:
+        # Extra security for sensitive credentials - show very little
+        if len(text) > 8:
+            return text[:2] + CONFIG["partial_mask_char"] * (len(text) - 2)
+        else:
+            return CONFIG["partial_mask_char"] * len(text)
+    elif entity_type == "DATE_TIME":
+        # Only mask year for dates if long enough
+        if len(text) > 6 and re.search(r'\d{4}', text):
+            date_parts = re.split(r'[-/\s:]', text)
+            if len(date_parts) > 2:
+                # Likely YYYY-MM-DD or similar
+                date_parts[0] = CONFIG["partial_mask_char"] * len(date_parts[0])
+                return re.sub(r'[-/\s:]', lambda m: m.group(0), '-'.join(date_parts))
+    
+    # Default to standard partial masking
+    return partial_mask_token(text)
 
 # --- Context-Aware Detection ---
 
@@ -482,6 +675,10 @@ def has_context(text, span_start, span_end, context_words):
     
     # Don't match blocklisted terms
     if matched_text in BLOCKLIST:
+        return False
+        
+    # Special case for projects that might be flagged as people
+    if matched_text.startswith("Project") and len(matched_text.split()) <= 2:
         return False
     
     # Extract a window of text before and after the entity
@@ -503,7 +700,7 @@ def has_context(text, span_start, span_end, context_words):
                 continue
             return True
             
-    # Also check if the match is near a colon, equals sign, or other indicators
+    # Check if the match is near a colon, equals sign, or other indicators
     nearby_text = text[max(0, span_start-20):min(len(text), span_end+10)]
     indicators = r'(?::|=|is\s+|was\s+reset\s+to\s+)'
     if re.search(indicators + r'\s*' + re.escape(matched_text), nearby_text, re.IGNORECASE):
@@ -514,7 +711,10 @@ def has_context(text, span_start, span_end, context_words):
 # --- Entity Verification ---
 
 def verify_entity(entity_type, text, confidence_score):
-    """Additional verification to filter out false positives."""
+    """
+    Enhanced verification to filter out false positives.
+    Applies specialized rules for different entity types.
+    """
     # Check if text is in blocklist
     if text.strip() in BLOCKLIST:
         return False
@@ -523,23 +723,37 @@ def verify_entity(entity_type, text, confidence_score):
     if entity_type is None:
         return False
     
+    # Check for common project names (which are often false positives)
+    if entity_type == "PERSON" and text.startswith("Project"):
+        return False
+        
+    # Check for generic team references
+    if entity_type == "PERSON" and text.lower() in ["team", "hi team", "hello team"]:
+        return False
+    
     # Reject specific structural patterns that are likely false positives
     if (
-        text.isdigit() and len(text) < 4 or  # Short numeric strings
+        (text.isdigit() and len(text) < 4) or  # Short numeric strings
         text.startswith("#") or              # Section headers/references
-        (len(text.split()) == 1 and len(text) < 5 and not re.search(r'\d', text))  # Short single words
+        (len(text.split()) == 1 and len(text) < 4 and not re.search(r'\d', text)) or  # Very short single words
+        text.lower() in ["from", "to", "hi", "hello", "subject", "best", "regards"]  # Common email parts
     ):
         return False
     
-    # Reject low-confidence entities of certain types
+    # Reject standalone common first names in certain contexts
+    if entity_type == "PERSON" and len(text.split()) == 1 and text in COMMON_NAME_WORDS:
+        return False
+        
+    # Updated confidence thresholds for different entity types
     type_confidence_thresholds = {
-        "PASSWORD": 0.8,      # Higher threshold for passwords
-        "API_KEY": 0.75,      # Higher for API keys
-        "CREDENTIAL": 0.8,    # Higher for credentials
-        "FINANCIAL": 0.7,     # Higher for financial data
-        "ORGANIZATION": 0.7,  # Higher for organizations
-        "DEVICE": 0.85,       # Very high for devices
-        "MEDICAL": 0.75       # Higher for medical data
+        "PASSWORD": 0.75,      # Higher threshold for passwords
+        "API_KEY": 0.75,       # Higher for API keys
+        "CREDENTIAL": 0.75,    # Higher for credentials
+        "FINANCIAL": 0.7,      # Higher for financial data
+        "ORGANIZATION": 0.65,  # Normal for organizations
+        "DEVICE": 0.75,        # Higher for devices (without identifiers)
+        "MEDICAL": 0.7,        # Higher for medical data
+        "PERSON": 0.68         # Slightly higher for person names
     }
     
     min_confidence = type_confidence_thresholds.get(entity_type, CONFIG["confidence_threshold"])
@@ -563,7 +777,7 @@ def verify_entity(entity_type, text, confidence_score):
             return False
             
     # Entity-type specific rejections
-    if entity_type == "CREDENTIAL" and text in ["user", "account", "login"]:
+    if entity_type == "CREDENTIAL" and text.lower() in ["user", "account", "login"]:
         return False
         
     if entity_type == "DEVICE" and text in ["iPhone", "MacBook", "Android", "Windows"]:
@@ -575,7 +789,10 @@ def verify_entity(entity_type, text, confidence_score):
 # --- Detection Functions ---
 
 def normalize_entity(entity: dict) -> str:
-    """Normalize entity types across different detectors."""
+    """
+    Normalize entity types across different detectors.
+    Returns a consistent entity type for all detectors.
+    """
     if 'entity_group' in entity:
         raw_type = entity['entity_group'].upper()
     elif 'entity' in entity:
@@ -616,11 +833,27 @@ def get_ner_entities(text: str, model_key: str) -> list:
         return []
 
 def get_regex_entities(text: str) -> list:
-    """Detect entities using enhanced regex patterns with context awareness."""
+    """
+    Enhanced regex-based detection with context awareness
+    and specialized pattern matching.
+    """
     regex_entities = []
     
+    # Special handling for MAC addresses
+    mac_addresses = re.finditer(r'\b([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b', text)
+    for match in mac_addresses:
+        start, end = match.span()
+        regex_entities.append({
+            "entity_group": "MAC_ADDRESS",
+            "start": start,
+            "end": end,
+            "score": 0.95,
+            "detector": "regex"
+        })
+    
+    # Process all other regex patterns
     for pattern_def in REGEX_PATTERNS:
-        for match in re.finditer(pattern_def["pattern"], text):
+        for match in re.finditer(pattern_def["pattern"], text, re.IGNORECASE):
             start, end = match.span()
             matched_text = text[start:end]
             
@@ -658,8 +891,7 @@ def get_regex_entities(text: str) -> list:
 
 def score_entity(entity: dict, text: str) -> float:
     """
-    Adjust entity confidence score based on additional heuristics.
-    This helps prioritize certain detections over others.
+    Enhanced scoring function for entities based on content and context.
     """
     score = entity.get('score', 0.6)
     entity_text = text[entity['start']:entity['end']]
@@ -667,6 +899,10 @@ def score_entity(entity: dict, text: str) -> float:
     
     # Skip banned terms
     if entity_text in BLOCKLIST or entity_type is None:
+        return 0.0
+    
+    # Skip certain general terms that are often false positives
+    if entity_text.lower() in ["project", "team", "update", "request", "from", "subject"] and entity_type == "PERSON":
         return 0.0
     
     # Boost confidence for entities detected by multiple systems
@@ -716,8 +952,8 @@ def score_entity(entity: dict, text: str) -> float:
 
 def merge_overlapping_entities(entities: list, text: str) -> list:
     """
-    Merge overlapping entities, considering their confidence scores and source.
-    This is more sophisticated than simple deduplication.
+    Enhanced entity merging that resolves overlapping entities intelligently.
+    Handles nested entities and prioritizes specialized detections.
     """
     if not entities:
         return []
@@ -764,14 +1000,23 @@ def merge_overlapping_entities(entities: list, text: str) -> list:
         if best_entity:  # Only add if not None
             result.append(best_entity)
     
-    return result
+    # Final verification pass
+    final_entities = []
+    for entity in result:
+        entity_text = text[entity['start']:entity['end']]
+        entity_type = entity['normalized_type']
+        
+        # Apply final verification and skip any disallowed entities
+        if verify_entity(entity_type, entity_text, entity['score']):
+            final_entities.append(entity)
+    
+    return final_entities
 
 def select_best_entity(entities: list, text: str) -> dict:
     """
-    From a group of overlapping entities, select the best one based on:
-    1. Confidence score (adjusted)
-    2. Detector priority
-    3. Entity length (prefer longer entities)
+    Enhanced selection of the best entity from overlapping entities.
+    Uses a comprehensive scoring system based on detector reliability,
+    entity type priority, and confidence scores.
     """
     if len(entities) == 1:
         entity_text = text[entities[0]['start']:entities[0]['end']]
@@ -798,11 +1043,27 @@ def select_best_entity(entities: list, text: str) -> dict:
     # Otherwise, prioritize by score and other factors
     detector_priority = {
         'regex': 3, 
-        'presidio': 2.5, 
-        'pii_specialized': 2.2,
-        'medical_pii': 2.0,
-        'ner_tech': 1.5, 
-        'ner_general': 1
+        'presidio': 2.8, 
+        'pii_specialized': 2.5,
+        'medical_pii': 2.2,
+        'medical_reports': 2.1,
+        'ner_tech': 1.8, 
+        'ner_general': 1.5
+    }
+    
+    # Entity type priority for overlapping entities
+    type_priority = {
+        "PASSWORD": 1.5,
+        "API_KEY": 1.4,
+        "CREDENTIAL": 1.3,
+        "FINANCIAL": 1.3,
+        "SSN": 1.5,
+        "CREDIT_CARD": 1.4,
+        "MEDICAL": 1.3,
+        "IP_ADDRESS": 1.2,
+        "MAC_ADDRESS": 1.2,
+        "EMAIL_ADDRESS": 1.1,
+        "PERSON": 1.0
     }
     
     best_score = -1
@@ -814,23 +1075,13 @@ def select_best_entity(entities: list, text: str) -> dict:
         if not verify_entity(entity['normalized_type'], entity_text, entity['score']):
             continue
             
-        # Calculate a composite score based on confidence and other factors
+        # Calculate a composite score based on multiple factors
         base_score = entity['score']
         detector_boost = detector_priority.get(entity['detector'], 1)
         length_factor = min(1.0, (entity['end'] - entity['start']) / 20)  # Favor longer entities up to a point
-        
-        # Prefer certain entity types for security (e.g., PASSWORD over general text)
-        type_priority = {
-            "PASSWORD": 1.5,
-            "API_KEY": 1.4,
-            "CREDENTIAL": 1.3,
-            "FINANCIAL": 1.3,
-            "SSN": 1.5,
-            "CREDIT_CARD": 1.4,
-            "MEDICAL": 1.4
-        }
         type_boost = type_priority.get(entity['normalized_type'], 1)
         
+        # Boost entities that have clear context or are more likely to be sensitive
         composite_score = base_score * detector_boost * type_boost * (1 + 0.2 * length_factor)
         
         if composite_score > best_score:
@@ -841,7 +1092,10 @@ def select_best_entity(entities: list, text: str) -> dict:
 
 # --- Ensemble Detection ---
 def run_model_detectors(text: str) -> list:
-    """Run all model-based entity detectors in parallel."""
+    """
+    Run all available entity detectors in parallel.
+    Optimizes detection by using thread pools efficiently.
+    """
     all_entities = []
     
     with ThreadPoolExecutor(max_workers=CONFIG["max_workers"]) as executor:
@@ -859,11 +1113,10 @@ def run_model_detectors(text: str) -> list:
         if "medical_pii" in MODELS:
             futures.append(executor.submit(get_ner_entities, text, "medical_pii"))
             
-        # Add the new medical model if available
         if "medical_reports" in MODELS:
             futures.append(executor.submit(get_ner_entities, text, "medical_reports"))
         
-        # Add regex patterns (these are fast, so we can run them in parallel)
+        # Add regex patterns (these are fast, but run them in parallel too)
         futures.append(executor.submit(get_regex_entities, text))
         
         # Collect results
@@ -879,8 +1132,8 @@ def run_model_detectors(text: str) -> list:
 # --- Anonymization Function ---
 def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = True) -> str:
     """
-    Enhanced anonymization function that combines multiple detection methods,
-    uses context-aware entity merging, and applies appropriate masking.
+    Enhanced anonymization function with better entity detection,
+    smarter masking, and improved handling of edge cases.
     """
     if not text:
         return ""
@@ -906,10 +1159,17 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
     # Sort entities in reverse order (to avoid index shifting during replacement)
     merged_entities.sort(key=lambda x: x['start'], reverse=True)
     
-    # Apply redaction
+    # Apply redaction with consistency checking
     redaction_count = 0
+    redacted_spans = {}  # Track already redacted spans
+    
     for entity in merged_entities:
         start, end = entity['start'], entity['end']
+        
+        # Skip if already redacted
+        if any(span_start <= start and end <= span_end for (span_start, span_end) in redacted_spans.keys()):
+            continue
+            
         original_token = text[start:end]
         entity_type = entity['normalized_type']
         
@@ -924,18 +1184,15 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
                 if full_redaction:
                     masked = full_mask_token(original_token, entity_type)
                 else:
-                    if entity_type == "EMAIL_ADDRESS":
-                        masked = mask_email(original_token)
-                    elif entity_type == "URL":
-                        masked = partial_mask_url(original_token)
-                    else:
-                        masked = partial_mask_token(original_token)
+                    # Use specialized partial masking based on entity type
+                    masked = smart_partial_mask(original_token, entity_type)
             except Exception as e:
                 logger.error(f"Error masking token '{original_token}' of type {entity_type}: {e}")
-                masked = '*' * len(original_token)
+                masked = CONFIG["partial_mask_char"] * len(original_token)
                 
             logger.debug(f"Masking '{original_token}' ({entity_type}) to '{masked}'")
             text = text[:start] + masked + text[end:]
+            redacted_spans[(start, end)] = True
             redaction_count += 1
     
     total_time = time.time() - start_time
@@ -950,8 +1207,8 @@ CORS(app, resources={r"/anonymize": {"origins": os.environ.get("FRONT_END_URL", 
 @app.route("/anonymize", methods=["POST"])
 def anonymize():
     """
-    Expects JSON with "text", optional "options", and optional boolean "full_redaction".
-    Returns the anonymized text.
+    Expect JSON with "text", optional "options", and optional "full_redaction".
+    Returns anonymized text with consistent metadata.
     """
     data = request.get_json(force=True)
     if not data or "text" not in data:
@@ -963,9 +1220,10 @@ def anonymize():
     
     try:
         result = anonymize_text(input_text, pii_options, full_redaction)
+        current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         return jsonify({
             "anonymized_text": result,
-            "timestamp": re.sub(r'[^0-9-: ]', '', "2025-03-01 18:27:39"),
+            "timestamp": current_time,
             "user": "rushilpatel21"
         })
     except Exception as e:
@@ -974,19 +1232,23 @@ def anonymize():
 
 @app.route("/health", methods=["GET"])
 def health_check():
-    """Simple health check endpoint."""
+    """Health check endpoint with system status information."""
     return jsonify({
         "status": "ok", 
         "models_loaded": list(MODELS.keys()),
-        "version": "2.0.0",
-        "timestamp": re.sub(r'[^0-9-: ]', '', "2025-03-01 18:27:39"),
-        "user": "rushilpatel21"
+        "version": "2.1.0",
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
+        "user": "rushilpatel21",
+        "config": {
+            "workers": CONFIG["max_workers"],
+            "threshold": CONFIG["confidence_threshold"]
+        }
     })
 
 @app.route("/entities", methods=["POST"])
 def detect_entities():
     """
-    Debugging endpoint that shows what entities were detected without masking.
+    Debugging endpoint that shows detected entities without masking.
     Only available in debug mode.
     """
     if not app.debug:
@@ -1017,17 +1279,23 @@ def detect_entities():
                 "text": text_span,
                 "type": entity_type,
                 "score": score,
-                "detector": entity.get('detector', 'unknown')
+                "detector": entity.get('detector', 'unknown'),
+                "span": [entity['start'], entity['end']]
             })
             
     # Sort by confidence score
     entities.sort(key=lambda x: x['score'], reverse=True)
     
-    return jsonify({"entities": entities})
+    return jsonify({
+        "entities": entities,
+        "total_count": len(entities),
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
+        "user": "rushilpatel21"
+    })
 
 @app.route("/config", methods=["GET"])
 def get_config():
-    """Return the current configuration."""
+    """Return the current configuration for debugging purposes."""
     if not app.debug:
         return jsonify({"error": "This endpoint is only available in debug mode"}), 403
         
@@ -1037,8 +1305,20 @@ def get_config():
         "entity_types": sorted(list(set(ENTITY_TYPE_MAPPING.values()))),
         "defaults": {
             "threshold": CONFIG["confidence_threshold"],
-            "workers": CONFIG["max_workers"]
-        }
+            "workers": CONFIG["max_workers"],
+            "partial_mask_char": CONFIG["partial_mask_char"]
+        },
+        "timestamp": "2025-03-02 05:23:36",
+        "user": "rushilpatel21"
+    })
+
+@app.route("/test", methods=["GET"])
+def test_connection():
+    """Simple test endpoint to verify connectivity."""
+    return jsonify({
+        "status": "ok",
+        "message": "Redactify API is running and operational",
+        "timestamp": "2025-03-02 05:23:36"
     })
 
 if __name__ == "__main__":
@@ -1046,8 +1326,11 @@ if __name__ == "__main__":
     debug = os.environ.get("DEBUG", "False").lower() in ("true", "1", "t")
     host = "0.0.0.0" if not debug else "127.0.0.1"
     
-    print(f"Redactify API v2.0.0 is ready and serving on port {port}")
+    print(f"Redactify API v2.1.0 is ready and serving on port {port}")
     print(f"Models loaded: {list(MODELS.keys())}")
     print(f"Debug mode: {debug}")
+    print(f"Worker threads: {CONFIG['max_workers']}")
+    print(f"Current time: 2025-03-02 05:23:36")
+    print(f"Current user: rushilpatel21")
     
     app.run(debug=debug, port=port, host=host)
