@@ -39,7 +39,7 @@ redactify/
 
 ### Detection Capabilities
 - **Multi-Method Detection**: Combines machine learning (Hugging Face NER), rule-based patterns (regex), and Presidio Analyzer
-- **13+ PII Types**: Identifies personal names, organizations, locations, email addresses, phone numbers, credit cards, SSNs, IP addresses, URLs, dates, passwords, API keys, and roll numbers
+- **20 PII Types**: Identifies personal names, organizations, locations, email addresses, phone numbers, credit cards, SSNs, IP addresses, URLs, dates, passwords, API keys, and roll numbers
 - **Customizable Confidence Thresholds**: Configure detection sensitivity based on your needs
 
 ### Anonymization Options
