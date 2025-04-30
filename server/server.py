@@ -132,7 +132,8 @@ def load_models():
                 models["medical_reports"] = pipeline(
                     "ner",
                     model="theekshana/deid-roberta-i2b2-NER-medical-reports",
-                    aggregation_strategy="simple"
+                    aggregation_strategy="simple",
+                    model_kwargs={"ignore_mismatched_sizes": True}
                 )
                 logger.info("Loaded medical reports NER model")
             except Exception as e:
