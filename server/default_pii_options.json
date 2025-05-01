@@ -1,0 +1,8 @@
+{
+    "PERSON": true, "ORGANIZATION": true, "LOCATION": true, "EMAIL_ADDRESS": true,
+    "PHONE_NUMBER": true, "CREDIT_CARD": true, "SSN": true, "IP_ADDRESS": true,
+    "URL": true, "DATE_TIME": true, "PASSWORD": true, "API_KEY": true,
+    "DEPLOY_TOKEN": true, "AUTHENTICATION": true, "FINANCIAL": true,
+    "CREDENTIAL": true, "ROLL_NUMBER": true, "DEVICE": true, "MEDICAL": true,
+    "ID_NUMBER": true, "MAC_ADDRESS": true
+}

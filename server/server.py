@@ -8,23 +8,49 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse, urlunparse
 from flask import Flask, request, jsonify
-from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer import AnalyzerEngine, PatternRecognizer, RecognizerRegistry
+from presidio_anonymizer import AnonymizerEngine
+from presidio_anonymizer.entities import OperatorConfig
 from flask_cors import CORS
 import requests
 from dotenv import load_dotenv
 
+# --- Load Environment Variables ---
 load_dotenv()
 
-# --- Configuration ---
+# --- Setup Logging ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("RedactifyServer")
+
+# --- Helper Function to Load JSON Config ---
+def load_json_config(filename, default_value=None):
+    """Loads configuration from a JSON file."""
+    filepath = os.path.join(os.path.dirname(__file__), filename)
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            logger.info(f"Successfully loaded configuration from {filename}")
+            return data
+    except FileNotFoundError:
+        logger.error(f"Configuration file not found: {filepath}. Using default value: {default_value}")
+        return default_value
+    except json.JSONDecodeError as e:
+        logger.error(f"Error decoding JSON from {filepath}: {e}. Using default value: {default_value}")
+        return default_value
+    except Exception as e:
+        logger.error(f"An unexpected error occurred loading {filepath}: {e}", exc_info=True)
+        return default_value
+
+# --- Load Configurations from JSON and Environment ---
+CONFIG_STATIC = load_json_config('config_static.json', {})
+
 CONFIG = {
+    **CONFIG_STATIC,
     "confidence_threshold": float(os.environ.get("CONFIDENCE_THRESHOLD", 0.68)),
-    "context_window": 6,
     "max_workers": int(os.environ.get("MAX_WORKERS", 8)),
     "enable_medical_pii": os.environ.get("ENABLE_MEDICAL_PII", "True").lower() == "true",
     "enable_technical_ner": os.environ.get("ENABLE_TECHNICAL_NER", "True").lower() == "true",
     "enable_pii_specialized": os.environ.get("ENABLE_PII_SPECIALIZED", "True").lower() == "true",
-    "partial_mask_char": "*",
-    "preserve_formatting": True,
     "mcp_classifier_url": os.environ.get("MCP_CLASSIFIER_URL", "http://localhost:8001"),
     "a2a_general_url": os.environ.get("A2A_GENERAL_URL", "http://localhost:8002"),
     "a2a_medical_url": os.environ.get("A2A_MEDICAL_URL", "http://localhost:8003"),
@@ -34,142 +60,53 @@ CONFIG = {
     "ner_agent_timeout": int(os.environ.get("NER_AGENT_TIMEOUT", 60)),
 }
 
-# --- Blocklist, Options, Mappings ---
-BLOCKLIST = {
-    "Submitted", "Customer", "Issue Description", "Order Number", "Account",
-    "Confirmation", "Attempts", "Reference", "Description", "Screenshots",
-    "Communication", "Number", "Information", "Details", "Subject", "Team",
-    "Project", "Request", "Update", "From", "Hi", "Hello", "Dear", "Regards",
-    "Best", "Thanks", "Thank you", "Report", "Board", "Contract", "Company",
-    "Office", "Employee", "Manager", "Director", "VP", "CEO", "CTO", "CFO",
-    "Approved by", "Case Priority", "High", "Medium", "Low", "Internal",
-    "External", "Technical", "Model", "Device", "CONFIDENTIAL", "Support",
-    "Ticket", "Date", "Phone", "Email", "Contact", "BILLING", "INFORMATION",
-    "Expiration", "Security", "Code", "CVV", "DEVICE", "DETAILS", "NOTES",
-    "Alternate", "HISTORY", "STATUS", "EMPLOYEE", "Priority"
-}
-COMMON_NAME_WORDS = {
-    "Best", "Approved", "Location", "Contact", "Technical", "Internal",
-    "University", "City", "State", "Country", "Street", "Avenue", "Street",
-    "Customer", "Support", "Service", "Sales", "Marketing", "Priority", "Status"
-}
-BLOCKLIST.update(COMMON_NAME_WORDS)
-DEFAULT_PII_OPTIONS = {
-    "PERSON": True, "ORGANIZATION": True, "LOCATION": True, "EMAIL_ADDRESS": True,
-    "PHONE_NUMBER": True, "CREDIT_CARD": True, "SSN": True, "IP_ADDRESS": True,
-    "URL": True, "DATE_TIME": True, "PASSWORD": True, "API_KEY": True,
-    "DEPLOY_TOKEN": True, "AUTHENTICATION": True, "FINANCIAL": True,
-    "CREDENTIAL": True, "ROLL_NUMBER": True, "DEVICE": True, "MEDICAL": True,
-    "ID_NUMBER": True, "MAC_ADDRESS": True
-}
-PSEUDONYMIZE_TYPES = {
-    "PERSON", "ORGANIZATION", "LOCATION", "EMAIL_ADDRESS",
-    "API_KEY", "DEPLOY_TOKEN", "AUTHENTICATION", "MEDICAL"
-}
-ENTITY_TYPE_MAPPING = {
-    "PERSON": "PERSON", "PER": "PERSON", "PEOPLE": "PERSON", "PERSONAL": "PERSON",
-    "INDIVIDUAL": "PERSON", "NAME": "PERSON", "NAME_STUDENT": "PERSON",
-    "PATIENT": "PERSON", "STAFF": "PERSON", "DOCTOR": "PERSON",
-    "ORG": "ORGANIZATION", "ORGANIZATION": "ORGANIZATION", "COMPANY": "ORGANIZATION",
-    "CORPORATION": "ORGANIZATION", "BUSINESS": "ORGANIZATION", "PATORG": "ORGANIZATION",
-    "HOSP": "ORGANIZATION",
-    "LOC": "LOCATION", "GPE": "LOCATION", "LOCATION": "LOCATION", "ADDRESS": "LOCATION",
-    "PLACE": "LOCATION", "STREET": "LOCATION", "CITY": "LOCATION", "STATE": "LOCATION",
-    "ZIP": "LOCATION", "ZIPCODE": "LOCATION", "POSTAL_CODE": "LOCATION",
-    "EMAIL": "EMAIL_ADDRESS", "EMAIL_ADDRESS": "EMAIL_ADDRESS", "MAIL": "EMAIL_ADDRESS",
-    "PHONE": "PHONE_NUMBER", "PHONE_NUMBER": "PHONE_NUMBER", "TEL": "PHONE_NUMBER",
-    "TELEPHONE": "PHONE_NUMBER", "MOBILE": "PHONE_NUMBER", "CELL": "PHONE_NUMBER",
-    "CREDIT_CARD": "CREDIT_CARD", "CREDIT": "CREDIT_CARD", "CC": "CREDIT_CARD",
-    "PAYMENT_CARD": "CREDIT_CARD", "CARD_NUMBER": "CREDIT_CARD", "PAN": "CREDIT_CARD",
-    "SSN": "SSN", "SOCIAL_SECURITY": "SSN", "SOCIAL_SECURITY_NUMBER": "SSN",
-    "IP": "IP_ADDRESS", "IP_ADDRESS": "IP_ADDRESS", "IPV4": "IP_ADDRESS", "IPV6": "IP_ADDRESS",
-    "MAC": "MAC_ADDRESS", "MAC_ADDRESS": "MAC_ADDRESS",
-    "URL": "URL", "URI": "URL", "WEBSITE": "URL", "LINK": "URL", "WEB": "URL",
-    "DATE": "DATE_TIME", "TIME": "DATE_TIME", "DATE_TIME": "DATE_TIME", "DATETIME": "DATE_TIME",
-    "PASSWORD": "PASSWORD", "PWD": "PASSWORD", "PASSWD": "PASSWORD", "PASSCODE": "PASSWORD",
-    "API_KEY": "API_KEY", "APIKEY": "API_KEY", "KEY": "API_KEY", "SECRET_KEY": "API_KEY",
-    "TOKEN": "DEPLOY_TOKEN", "DEPLOY_TOKEN": "DEPLOY_TOKEN", "ACCESS_TOKEN": "DEPLOY_TOKEN",
-    "SECRET_TOKEN": "DEPLOY_TOKEN", "OAUTH_TOKEN": "DEPLOY_TOKEN",
-    "AUTH": "AUTHENTICATION", "AUTHENTICATION": "AUTHENTICATION", "BEARER": "AUTHENTICATION",
-    "SESSION": "AUTHENTICATION",
-    "CREDENTIAL": "CREDENTIAL", "LOGIN": "CREDENTIAL", "USERNAME": "CREDENTIAL", "USER": "CREDENTIAL",
-    "FINANCIAL": "FINANCIAL", "ACCOUNT": "FINANCIAL", "ROUTING": "FINANCIAL", "BANK": "FINANCIAL",
-    "ACCOUNT_NUMBER": "FINANCIAL", "ROUTING_NUMBER": "FINANCIAL", "CVV": "FINANCIAL", "CVC": "FINANCIAL",
-    "ROLL_NUMBER": "ROLL_NUMBER", "ENROLLMENT": "ROLL_NUMBER", "STUDENT_ID": "ROLL_NUMBER",
-    "DEVICE": "DEVICE",
-    "PRODUCT": "PRODUCT",
-    "ID_NUMBER": "ID_NUMBER", "DRIVER_LICENSE": "ID_NUMBER", "PASSPORT": "ID_NUMBER",
-    "LICENSE_NUMBER": "ID_NUMBER", "ID": "ID_NUMBER",
-    "MEDICAL": "MEDICAL", "PATIENT_ID": "MEDICAL", "HEALTH_ID": "MEDICAL",
-    "MEDICAL_RECORD": "MEDICAL", "MRN": "MEDICAL", "PHN": "MEDICAL", "DIAGNOSIS": "MEDICAL",
-    "CONDITION": "MEDICAL", "PROCEDURE": "MEDICAL", "HOSPITAL": "MEDICAL", "PROVIDER_NUMBER": "MEDICAL",
-    "MISC": None, "O": None,
-}
-REGEX_PATTERNS = [
-    {"type": "SSN", "pattern": r"\b\d{3}-\d{2}-\d{4}\b", "context": ["ssn", "social security", "social"]},
-    {"type": "IP_ADDRESS", "pattern": r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "context": ["ip", "address", "server", "host"]},
-    {"type": "MAC_ADDRESS", "pattern": r"\b([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b", "context": []},
-    {"type": "MAC_ADDRESS", "pattern": r"\b([0-9A-Fa-f]{2}[.]){5}[0-9A-Fa-f]{2}\b", "context": ["mac", "address", "ethernet"]},
-    {"type": "URL", "pattern": r"\bhttps?://[^\s]+\b", "context": []},
-    {"type": "URL", "pattern": r"\b(?:www\.)[a-z0-9-]+(?:\.[a-z]{2,})+(?:/[^\s]*)?", "context": []},
-    {"type": "URL", "pattern": r"\b[a-z0-9-]+\.[a-z0-9-]+\.[a-z]{2,}(?:/[^\s]*)?", "context": ["http", "https", "web", "site", "portal", "access"]},
-    {"type": "DATE_TIME", "pattern": r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b", "context": []},
-    {"type": "DATE_TIME", "pattern": r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}\b", "context": []},
-    {"type": "DATE_TIME", "pattern": r"\b\d{1,2}/\d{2}\b", "context": ["exp", "expiration", "valid", "until"]},
-    {"type": "DATE_TIME", "pattern": r"\b\d{4}-\d{2}-\d{2}\b", "context": []},
-    {"type": "DATE_TIME", "pattern": r"\b\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}\b", "context": []},
-    {"type": "DATE_TIME", "pattern": r"\b\d{2}/\d{2}/\d{4}\b", "context": []},
-    {"type": "PHONE_NUMBER", "pattern": r"\b\d{10}\b", "context": ["phone", "mobile", "cell", "tel", "telephone", "contact"]},
-    {"type": "PHONE_NUMBER", "pattern": r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b", "context": []},
-    {"type": "PHONE_NUMBER", "pattern": r"\(\d{3}\)\s*\d{3}[-.\s]?\d{4}\b", "context": []},
-    {"type": "PHONE_NUMBER", "pattern": r"\+\d{1,3}[-.\s]?\d{3}[-.\s]?\d{3,4}[-.\s]?\d{3,4}", "context": []},
-    {"type": "PASSWORD", "pattern": r"(?i)(?:password|passwd|pwd)(?::|=|\s+is\s+)\s*(\S+)", "context": []},
-    {"type": "PASSWORD", "pattern": r"(?i)password(?:\s+was|\s+has\s+been)?\s+(?:reset|changed)(?:\s+to)?\s+(\S+)", "context": []},
-    {"type": "PASSWORD", "pattern": r"(?=.*[A-Za-z])(?=.*\d)(?=.*[$#@!%^&*()_+])[A-Za-z\d$#@!%^&*()_+]{8,}", "context": ["password", "pass", "pwd", "credential", "login", "auth", "secret", "temporary", "temp"]},
-    {"type": "CREDIT_CARD", "pattern": r"\b(?:\d{4}[- ]?){3}\d{4}\b", "context": []},
-    {"type": "CREDIT_CARD", "pattern": r"\b\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\b", "context": []},
-    {"type": "CREDIT_CARD", "pattern": r"credit card:?\s*\**\d{4}", "context": []},
-    {"type": "FINANCIAL", "pattern": r"\bCVV:?\s*(\d{3,4})\b", "context": []},
-    {"type": "FINANCIAL", "pattern": r"\bCVC:?\s*(\d{3,4})\b", "context": []},
-    {"type": "FINANCIAL", "pattern": r"\bsecurity\s+code:?\s*(\d{3,4})\b", "context": []},
-    {"type": "API_KEY", "pattern": r"(?i)api[_-]?key(?::|=|\s+is\s+)\s*([A-Za-z0-9\-_\.]{8,})\b", "context": []},
-    {"type": "API_KEY", "pattern": r"(?i)(?:api|app|access)[_-]?(?:key|token|secret|id)(?::|=|\s+is\s+)\s*\S+", "context": []},
-    {"type": "API_KEY", "pattern": r"\b[A-Za-z0-9_\-]{20,40}\b", "context": ["api", "key", "secret", "token", "auth", "access", "credentials"]},
-    {"type": "AUTHENTICATION", "pattern": r"ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]*", "context": []},
-    {"type": "DEPLOY_TOKEN", "pattern": r"gh[pousr]_[A-Za-z0-9_]{16,}\b", "context": []},
-    {"type": "DEPLOY_TOKEN", "pattern": r"(?i)(?:deploy|access|auth|oauth)[_-]?token(?::|=|\s+is\s+)\s*\S+", "context": []},
-    {"type": "AUTHENTICATION", "pattern": r"(?i)(?:bearer|basic|digest|oauth)[_-]?token(?::|=|\s+is\s+)\s*\S+", "context": []},
-    {"type": "AUTHENTICATION", "pattern": r"(?i)auth(?:entication)?(?::|=|\s+is\s+)\s*\S+", "context": []},
-    {"type": "AUTHENTICATION", "pattern": r"(?i)credential(?:s)?(?::|=|\s+is\s+)\s*\S+", "context": []},
-    {"type": "AUTHENTICATION", "pattern": r"session\s+key:?\s*\S+", "context": []},
-    {"type": "FINANCIAL", "pattern": r"\brouting[:\s]+(\d{9})\b", "context": []},
-    {"type": "FINANCIAL", "pattern": r"\baccount\s+(?:number|#)?[:\s]+(\d+)\b", "context": []},
-    {"type": "FINANCIAL", "pattern": r"\b(?:account|acct)(?:.+?)ending in (\d{4})\b", "context": []},
-    {"type": "FINANCIAL", "pattern": r"ending in \d{4}", "context": ["card", "account"]},
-    {"type": "FINANCIAL", "pattern": r"card \(ending in \d{4}", "context": []},
-    {"type": "FINANCIAL", "pattern": r"(?:bank|checking|savings)\s+account:?\s*(\d{8,})", "context": []},
-    {"type": "FINANCIAL", "pattern": r"routing\s+number:?\s*(\d{8,})", "context": []},
-    {"type": "ROLL_NUMBER", "pattern": r"\b\d{2}[A-Za-z]{3}\d{3}\b", "context": ["student", "roll", "enrollment"]},
-    {"type": "ROLL_NUMBER", "pattern": r"\b(?:roll|enrollment|student)(?:.+?)(?:number|no|#)?[:\s]+([A-Za-z0-9\-]{5,10})\b", "context": []},
-    {"type": "CREDENTIAL", "pattern": r"\busername[:\s]+(\S+)\b", "context": []},
-    {"type": "CREDENTIAL", "pattern": r"\blogin[:\s]+(\S+)\b", "context": []},
-    {"type": "CREDENTIAL", "pattern": r"\buser(?:name)?[:\s]+(\S+)\b", "context": []},
-    {"type": "DEVICE", "pattern": r"(?:iPhone|iPad|MacBook|Android|Windows|Device)\s+(?:\w+\s+)?\w+", "context": ["device", "model", "using", "on"]},
-    {"type": "DEVICE", "pattern": r"Serial\s+Number:?\s+([A-Z0-9]{5,})", "context": []},
-    {"type": "ID_NUMBER", "pattern": r"(?:Order|Invoice)(?:\s+(?:Number|#|ID|No\.?)):\s*([A-Za-z0-9\-]+)", "context": []},
-    {"type": "ID_NUMBER", "pattern": r"(?:Customer|Account)(?:\s+(?:ID|#|No\.?)):\s*([A-Za-z0-9\-]+)", "context": ["customer", "account", "id", "number"]},
-    {"type": "MEDICAL", "pattern": r"\b(?:patient|medical|health|record)\s+(?:id|number|#):\s*([A-Za-z0-9\-]+)", "context": []},
-    {"type": "MEDICAL", "pattern": r"\b(?:MRN|PHN)(?::|#|\s+number)?\s*:?\s*([A-Za-z0-9\-]+)", "context": []},
-    {"type": "MEDICAL", "pattern": r"Medical Insurance ID:?\s*([A-Za-z0-9\-]+)", "context": []},
-    {"type": "MEDICAL", "pattern": r"Provider ID:?\s*([A-Za-z0-9\-]+)", "context": []},
-    {"type": "ID_NUMBER", "pattern": r"\b(?:passport|driver|license|id)\s+(?:number|#):\s*([A-Za-z0-9\-]+)", "context": []},
-    {"type": "ID_NUMBER", "pattern": r"\b[A-Z]{1,2}[0-9]{6,9}\b", "context": ["passport", "government", "license", "identification"]},
-    {"type": "ID_NUMBER", "pattern": r"Employee\s+ID:?\s*([A-Za-z0-9\-]+)", "context": []},
-]
+BLOCKLIST_LIST = load_json_config('blocklist.json', [])
+COMMON_NAME_WORDS_LIST = load_json_config('common_name_words.json', [])
+DEFAULT_PII_OPTIONS = load_json_config('default_pii_options.json', {})
+PSEUDONYMIZE_TYPES_LIST = load_json_config('pseudonymize_types.json', [])
+ENTITY_TYPE_MAPPING = load_json_config('entity_type_mapping.json', {})
 
-# --- Setup Logging ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("DispatcherAgent")
+BLOCKLIST = set(BLOCKLIST_LIST)
+COMMON_NAME_WORDS = set(COMMON_NAME_WORDS_LIST)
+PSEUDONYMIZE_TYPES = set(PSEUDONYMIZE_TYPES_LIST)
+BLOCKLIST.update(COMMON_NAME_WORDS)
+
+# --- Load Regex Patterns from JSON ---
+def load_regex_patterns(filepath=os.path.join(os.path.dirname(__file__), 'regex_patterns.json')):
+    """Loads and compiles regex patterns from a JSON file."""
+    patterns = []
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            patterns_data = json.load(f)
+        logger.info(f"Successfully loaded {len(patterns_data)} regex pattern definitions from {filepath}")
+        for p_def in patterns_data:
+            pattern_str = p_def.get('pattern')
+            pattern_type = p_def.get('type', 'N/A')
+            if not pattern_str:
+                logger.warning(f"Skipping pattern type '{pattern_type}' due to missing 'pattern' field.")
+                continue
+            try:
+                p_def['compiled_pattern'] = re.compile(pattern_str, re.IGNORECASE)
+                patterns.append(p_def)
+            except re.error as e:
+                logger.error(f"Failed to compile regex for type '{pattern_type}' with pattern '{pattern_str}': {e}")
+            except Exception as comp_e:
+                logger.error(f"Unexpected error compiling regex pattern '{pattern_type}': {comp_e}")
+        logger.info(f"Successfully compiled {len(patterns)} regex patterns.")
+        return patterns
+    except FileNotFoundError:
+        logger.error(f"Regex patterns file not found: {filepath}. Regex detection will be disabled.")
+        return []
+    except json.JSONDecodeError as e:
+        logger.error(f"Error decoding JSON from {filepath}: {e.msg} at line {e.lineno} column {e.colno} (char {e.pos}). Regex detection may fail.")
+        return []
+    except Exception as e:
+        logger.error(f"An unexpected error occurred loading regex patterns from {filepath}: {e}", exc_info=True)
+        return []
+
+REGEX_PATTERNS = load_regex_patterns()
+if not REGEX_PATTERNS:
+    logger.warning("REGEX_PATTERNS list is empty or loading failed. Regex detection will not function correctly.")
 
 # --- Initialize Core Services (Presidio) ---
 def load_core_services():
@@ -275,46 +212,48 @@ def has_context(text, span_start, span_end, context_words):
     return False
 
 def get_regex_entities(text: str) -> list:
-    """Enhanced regex-based detection with context awareness."""
+    """Enhanced regex-based detection with context awareness using loaded patterns."""
     regex_entities = []
+    if not REGEX_PATTERNS:
+        return []
+
     for pattern_def in REGEX_PATTERNS:
+        compiled_pattern = pattern_def.get('compiled_pattern')
+        if not compiled_pattern:
+            continue
+
         try:
-            for match in re.finditer(pattern_def["pattern"], text, re.IGNORECASE):
+            for match in compiled_pattern.finditer(text):
                 start, end = match.span()
                 matched_text = text[start:end]
+
                 if len(matched_text) < 3 and not pattern_def.get("context"): continue
-                if matched_text.lower() in ["customer", "submitted", "description", "reference"]: continue
+                if not matched_text.strip(): continue
 
                 if has_context(text, start, end, pattern_def.get("context", [])):
                     use_group = pattern_def.get("use_group", True)
-                    if match.groups() and use_group and len(match.groups()) > 0:
-                        if match.lastindex is not None and match.lastindex >= 1:
-                            group_start, group_end = match.span(1)
-                            if group_start >= 0 and group_end >= group_start:
-                                regex_entities.append({
-                                    "entity_group": pattern_def["type"], "start": group_start, "end": group_end,
-                                    "score": 0.9, "detector": "regex_internal"
-                                })
+                    group_start, group_end = start, end
+
+                    if compiled_pattern.groups > 0 and use_group:
+                        try:
+                            gs, ge = match.span(1)
+                            if gs >= 0 and ge >= gs:
+                                group_start, group_end = gs, ge
                             else:
-                                logger.warning(f"Invalid group span for regex {pattern_def['type']} on '{matched_text}'. Using full match.")
-                                regex_entities.append({
-                                    "entity_group": pattern_def["type"], "start": start, "end": end,
-                                    "score": 0.9, "detector": "regex_internal"
-                                })
-                        else:
-                            regex_entities.append({
-                                "entity_group": pattern_def["type"], "start": start, "end": end,
-                                "score": 0.9, "detector": "regex_internal"
-                            })
-                    else:
-                        regex_entities.append({
-                            "entity_group": pattern_def["type"], "start": start, "end": end,
-                            "score": 0.9, "detector": "regex_internal"
-                        })
+                                logger.debug(f"Invalid group span (span(1)) for regex {pattern_def['type']} on '{matched_text}'. Using full match.")
+                        except IndexError:
+                            logger.debug(f"Group 1 did not participate in match for regex {pattern_def['type']} on '{matched_text}'. Using full match.")
+
+                    regex_entities.append({
+                        "entity_group": pattern_def["type"],
+                        "start": group_start,
+                        "end": group_end,
+                        "score": 0.9,
+                        "detector": "regex_internal"
+                    })
         except Exception as e:
             logger.error(f"Error processing regex pattern {pattern_def.get('type', 'N/A')}: {e}", exc_info=False)
 
-    logger.debug(f"Regex found {len(regex_entities)} entities.")
     return regex_entities
 
 # --- Core Logic (Modified run_detectors) ---
