@@ -47,7 +47,7 @@ CONFIG_STATIC = load_json_config('config_static.json', {})
 
 CONFIG = {
     **CONFIG_STATIC,
-    "confidence_threshold": float(os.environ.get("CONFIDENCE_THRESHOLD", 0.68)),
+    "confidence_threshold": float(os.environ.get("CONFIDENCE_THRESHOLD", 0.5)),
     "max_workers": int(os.environ.get("MAX_WORKERS", 8)),
     "enable_medical_pii": os.environ.get("ENABLE_MEDICAL_PII", "True").lower() == "true",
     "enable_technical_ner": os.environ.get("ENABLE_TECHNICAL_NER", "True").lower() == "true",

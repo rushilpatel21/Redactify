@@ -2,6 +2,7 @@ import subprocess
 import os
 import time
 import sys
+import signal # Import signal module
 
 # --- Configuration ---
 # Base directory where the 'server' folder is located
@@ -22,11 +23,31 @@ DISPATCHER_TITLE = "Dispatcher"
 PYTHON_EXE = sys.executable # Use the same python interpreter that runs this script
 
 # Delay before starting the dispatcher (seconds)
-STARTUP_DELAY = 5
+STARTUP_DELAY = 20
+
+# --- Global list to hold process objects ---
+processes = []
+
+# --- Termination Handler ---
+def terminate_processes(signum, frame):
+    """Signal handler to terminate all child processes."""
+    print("\nTermination signal received. Stopping services...")
+    # Iterate in reverse order in case of dependencies (though unlikely here)
+    for proc, title in reversed(processes):
+        try:
+            print(f"  > Terminating {title} (PID: {proc.pid})...")
+            proc.terminate() # Send SIGTERM (or TerminateProcess on Windows)
+        except Exception as e:
+            print(f"  [WARN] Could not terminate {title} (PID: {proc.pid}): {e}")
+    print("All termination signals sent.")
+    sys.exit(0) # Exit the launcher script
+
+# Register signal handlers for graceful shutdown
+signal.signal(signal.SIGINT, terminate_processes)  # Handle Ctrl+C
+signal.signal(signal.SIGTERM, terminate_processes) # Handle termination signals (e.g., from OS)
 
 # --- Launch Services ---
 print("Starting Redactify Services...")
-processes = []
 
 # Determine creation flags based on OS (for new console window on Windows)
 creationflags = 0
@@ -41,10 +62,8 @@ for service_dir, script_name, title in SERVICES:
     cmd = [PYTHON_EXE, script_path]
 
     try:
-        # Use Popen to start the process without waiting
-        # cwd sets the working directory for the subprocess
         proc = subprocess.Popen(cmd, cwd=service_path, creationflags=creationflags)
-        processes.append(proc)
+        processes.append((proc, title)) # Store tuple of (process_object, title)
         print(f"  > {title} launched (PID: {proc.pid})")
     except FileNotFoundError:
         print(f"  [ERROR] Could not find script or directory for {title}: {script_path}")
@@ -61,24 +80,24 @@ dispatcher_script_path = os.path.join(SERVER_DIR, DISPATCHER_SCRIPT)
 cmd = [PYTHON_EXE, dispatcher_script_path]
 try:
     proc = subprocess.Popen(cmd, cwd=SERVER_DIR, creationflags=creationflags)
-    processes.append(proc)
+    processes.append((proc, DISPATCHER_TITLE))
     print(f"  > {DISPATCHER_TITLE} launched (PID: {proc.pid})")
 except FileNotFoundError:
     print(f"  [ERROR] Could not find dispatcher script: {dispatcher_script_path}")
 except Exception as e:
     print(f"  [ERROR] Failed to launch {DISPATCHER_TITLE}: {e}")
 
+print("\nAll services launched.")
+print("Press Ctrl+C in this window to stop all services and exit.")
 
-print("\nAll services launched in separate windows.")
-print("Press Ctrl+C in this window to exit this launcher script (services will keep running).")
-print("To stop the services, close their individual console windows.")
-
-# Keep the launcher script running until interrupted,
-# otherwise it might exit immediately.
+# Keep the launcher script running, waiting for signals
 try:
     while True:
-        time.sleep(1)
-except KeyboardInterrupt:
-    print("\nLauncher script interrupted. Remember to close service windows manually.")
-    # Note: This does NOT automatically terminate the child processes started with Popen.
-    # You would need more complex logic (e.g., storing PIDs and terminating them) for that.
+        # Check if any process exited unexpectedly (optional)
+        for i, (proc, title) in enumerate(processes):
+            if proc.poll() is not None: # poll() returns exit code if terminated, None otherwise
+                print(f"\n[WARN] Service '{title}' (PID: {proc.pid}) terminated unexpectedly with code {proc.returncode}.")
+        time.sleep(5) # Check every 5 seconds
+except Exception as e:
+    print(f"\nUnexpected error in launcher's main loop: {e}")
+    terminate_processes(None, None)
