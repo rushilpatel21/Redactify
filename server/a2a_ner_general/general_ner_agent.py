@@ -1,89 +1,83 @@
 import os
 import logging
-import time # Added for logging
-from flask import Flask, request, jsonify
+import time
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Any, Dict, Optional
 from transformers import pipeline
 from dotenv import load_dotenv
-import numpy as np # Add numpy import
+import numpy as np
 
 load_dotenv()
-
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("A2AGeneralNER") # Changed logger name
+logger = logging.getLogger("A2AGeneralNER")
 
-app = Flask(__name__)
-
-# --- Agent Configuration ---
+app = FastAPI()
 MODEL_NAME = "dbmdz/bert-large-cased-finetuned-conll03-english"
-AGENT_ID = "a2a_ner_general" # Identifier for this agent
+AGENT_ID    = "a2a_ner_general"
 
-# --- Load Model ---
+class ModelContextRequest(BaseModel):
+    model_id: Optional[str] = None
+    model_version: Optional[str] = None
+    inputs: str
+    parameters: Optional[Dict[str, Any]] = None
+
+class ModelContextResponse(BaseModel):
+    model_id: str
+    model_version: str
+    outputs: Dict[str, Any]
+
 ner_pipeline = None
 try:
     logger.info(f"[{AGENT_ID}] Loading model: {MODEL_NAME}")
-    # Consider adding device placement (device=0 for GPU if available)
     ner_pipeline = pipeline("ner", model=MODEL_NAME, aggregation_strategy="simple")
     logger.info(f"[{AGENT_ID}] Model loaded successfully.")
 except Exception as e:
     logger.error(f"[{AGENT_ID}] Failed to load model {MODEL_NAME}: {e}", exc_info=True)
-    # Allow app to start but endpoint will fail
 
-# --- API Endpoint (A2A Simulation) ---
-@app.route("/detect", methods=["POST"])
-def detect():
-    """Receives text and returns detected entities from this agent's model."""
+@app.post("/predict", response_model=ModelContextResponse)
+async def predict(request: ModelContextRequest):
+    text = request.inputs or ""
     if ner_pipeline is None:
-        logger.error(f"[{AGENT_ID}] Model not loaded, cannot process request.")
-        return jsonify({"error": f"Model for agent {AGENT_ID} is not available"}), 503 # Service Unavailable
-
-    # Use force=True cautiously, consider adding explicit content-type check
-    data = request.get_json(force=True)
-    if not data or "text" not in data:
-        return jsonify({"error": "No text provided"}), 400
-
-    text = data["text"]
+        raise HTTPException(503, "Model not available")
     if not text:
-        return jsonify({"entities": []}) # Return empty list for empty text
-
-    logger.info(f"[{AGENT_ID}] Received detection request (text length: {len(text)}).")
+        return ModelContextResponse(
+            model_id=request.model_id or AGENT_ID,
+            model_version=request.model_version or MODEL_NAME,
+            outputs={"entities": []}
+        )
+    logger.info(f"[{AGENT_ID}] Detecting entities in text length {len(text)}")
     try:
-        start_time = time.time()
-        # Limit text length if models struggle with very long inputs
-        # results = ner_pipeline(text[:10000]) # Example limit
-        raw_results = ner_pipeline(text)
-        duration = time.time() - start_time
-        logger.info(f"[{AGENT_ID}] Detection completed in {duration:.2f}s, found {len(raw_results)} entities.")
-
-        # --- FIX: Convert float32 scores and add detector ---
-        processed_results = []
-        for item in raw_results:
-            # Ensure score exists and is a numeric type before casting
+        start = time.time()
+        raw = ner_pipeline(text)
+        logger.info(f"[{AGENT_ID}] Found {len(raw)} spans in {time.time()-start:.2f}s")
+        results = []
+        for item in raw:
             if 'score' in item and isinstance(item['score'], (int, float, np.floating)):
-                 item['score'] = float(item['score']) # Cast to standard float
-            item['detector'] = AGENT_ID # Use agent ID instead of model key
-            processed_results.append(item)
-        # --- End FIX ---
-
-        return jsonify({"entities": processed_results})
+                item['score'] = float(item['score'])
+            if 'start' in item: item['start'] = int(item['start'])
+            if 'end' in item:   item['end']   = int(item['end'])
+            item['detector'] = AGENT_ID
+            results.append(item)
+        return ModelContextResponse(
+            model_id=request.model_id or AGENT_ID,
+            model_version=request.model_version or MODEL_NAME,
+            outputs={"entities": results}
+        )
     except Exception as e:
-        logger.error(f"[{AGENT_ID}] Error during NER detection: {e}", exc_info=True)
-        # Ensure the error message itself is serializable
-        error_message = f"Detection failed in agent {AGENT_ID}: {str(e)}"
-        return jsonify({"error": error_message}), 500
+        logger.error(f"[{AGENT_ID}] Error: {e}", exc_info=True)
+        raise HTTPException(500, f"Detection failed: {e}")
 
-@app.route("/health", methods=["GET"])
-def health_check():
-    """Basic health check for the agent."""
-    return jsonify({
+@app.get("/health", summary="Health Check")
+async def health():
+    return {
         "status": "ok" if ner_pipeline else "error",
         "agent_id": AGENT_ID,
         "model_loaded": ner_pipeline is not None,
         "model_name": MODEL_NAME
-    })
+    }
 
-# --- Run (for development) ---
 if __name__ == "__main__":
+    import uvicorn
     port = int(os.environ.get("A2A_GENERAL_PORT", 8002))
-    logger.info(f"Starting {AGENT_ID} on port {port}")
-    # Set debug=False for production
-    app.run(host="0.0.0.0", port=port, debug=False)
+    uvicorn.run(app, host="0.0.0.0", port=port)

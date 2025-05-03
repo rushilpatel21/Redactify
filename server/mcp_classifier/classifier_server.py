@@ -4,7 +4,7 @@ import time
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Any, Dict, Optional
 from transformers import pipeline, AutoModelForSequenceClassification, AutoTokenizer
 import torch
 
@@ -84,34 +84,41 @@ def model_classify(text: str) -> List[str]:
         logger.error(f"Error during model classification: {e}", exc_info=True)
         return ["general"]
 
-# --- API Models ---
-class TextInput(BaseModel):
-    text: str
+# --- MCP Models ---
+class ModelContextRequest(BaseModel):
+    model_id: Optional[str] = None
+    model_version: Optional[str] = None
+    inputs: str
+    parameters: Optional[Dict[str, Any]] = None
 
-class ClassificationOutput(BaseModel):
-    classifications: List[str]
+class ModelContextResponse(BaseModel):
+    model_id: str
+    model_version: str
+    outputs: Dict[str, Any]
 
-# --- API Endpoint ---
-@app.post("/classify",
-          response_model=ClassificationOutput,
-          summary="Classify input text using Zero-Shot Model",
-          description=f"Returns a list of relevant classifications from {CANDIDATE_LABELS} based on model confidence (threshold: {CONFIDENCE_THRESHOLD}).")
-async def classify_endpoint(data: TextInput):
-    """Receives text and returns its classification(s) using the model."""
+# --- MCP Predict Endpoint ---
+@app.post(
+    "/predict",
+    response_model=ModelContextResponse,
+    summary="MCP Predict: Zero-Shot Classification",
+    description="MCP protocol endpoint wrapping zero-shot classify"
+)
+async def predict(request: ModelContextRequest):
     start_time = time.time()
-    if not data.text:
-        return {"classifications": ["general"]}
+    text = request.inputs or ""
+    if not text:
+        classifications = ["general"]
+    else:
+        classifications = model_classify(text)
+    duration = time.time() - start_time
+    logger.info(f"MCP Predict: model={request.model_id or MODEL_NAME} classified in {duration:.4f}s")
+    return ModelContextResponse(
+        model_id=request.model_id or MODEL_NAME,
+        model_version=request.model_version or MODEL_NAME,
+        outputs={"classifications": classifications}
+    )
 
-    try:
-        classification_list = model_classify(data.text)
-        duration = time.time() - start_time
-        text_snippet = data.text[:100].replace('\n', ' ') + ('...' if len(data.text) > 100 else '')
-        logger.info(f"Classified snippet '{text_snippet}' as: {classification_list} in {duration:.4f}s")
-        return {"classifications": classification_list}
-    except Exception as e:
-        logger.error(f"Unexpected error in /classify endpoint: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal server error during classification: {e}")
-
+# --- Health Check ---
 @app.get("/health", summary="Health Check")
 async def health():
     """Basic health check, indicates if model is loaded."""

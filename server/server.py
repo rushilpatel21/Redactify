@@ -7,11 +7,12 @@ import json
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse, urlunparse
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from presidio_analyzer import AnalyzerEngine, PatternRecognizer, RecognizerRegistry
 from presidio_anonymizer import AnonymizerEngine
 from presidio_anonymizer.entities import OperatorConfig
-from flask_cors import CORS
 import requests
 from dotenv import load_dotenv
 from typing import List
@@ -21,7 +22,16 @@ load_dotenv()
 
 # --- Setup Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("RedactifyServer")
+logger = logging.getLogger("RedactifyMCPServer")
+
+# --- Initialize FastAPI App ---
+app = FastAPI(title="Redactify MCP Server")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.environ.get("FRONT_END_URL", "http://localhost:5173")],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- Helper Function to Load JSON Config ---
 def load_json_config(filename, default_value=None):
@@ -126,54 +136,27 @@ CORE_SERVICES = load_core_services()
 # --- Agent/Service Communication ---
 def get_text_classification(text: str) -> List[str]:
     """Calls the MCP Text Classifier service and returns a list of classifications."""
-    url = CONFIG["mcp_classifier_url"] + "/classify"
+    url = CONFIG["mcp_classifier_url"] + "/predict"
     default_classification = ["general"]
     try:
-        response = requests.post(url, json={"text": text}, timeout=CONFIG["classifier_timeout"])
+        payload = {"inputs": text}
+        response = requests.post(url, json=payload, timeout=CONFIG["classifier_timeout"])
         response.raise_for_status()
-        classifications = response.json().get("classifications", default_classification)
-        if not isinstance(classifications, list) or not classifications:
-            logger.warning(f"Received invalid classification data from {url}: {classifications}. Defaulting.")
-            return default_classification
-        logger.debug(f"Received classifications {classifications} from {url}")
+        classifications = response.json().get("outputs", {}).get("classifications", default_classification)
         return classifications
-    except requests.exceptions.Timeout:
-        logger.warning(f"Timeout contacting text classifier at {url}. Defaulting to {default_classification}.")
-        return default_classification
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error contacting text classifier at {url}: {e}. Defaulting to {default_classification}.")
-        return default_classification
-    except json.JSONDecodeError as e:
-        logger.error(f"Error decoding JSON response from text classifier at {url}: {e}. Defaulting to {default_classification}.")
-        return default_classification
-    except Exception as e:
-        logger.error(f"Unexpected error during text classification call: {e}", exc_info=True)
+    except Exception:
         return default_classification
 
 def invoke_a2a_agent(agent_url: str, text: str) -> list:
-    """Calls a specific A2A NER Agent."""
-    url = agent_url + "/detect"
+    """Calls a specific A2A NER Agent using MCP."""
+    url = agent_url + "/predict"
     try:
-        agent_name = urlparse(agent_url).path.strip('/') or urlparse(agent_url).netloc or agent_url
-    except:
-        agent_name = agent_url
-
-    logger.debug(f"Invoking agent {agent_name} at {url}...")
-    try:
-        response = requests.post(url, json={"text": text}, timeout=CONFIG["ner_agent_timeout"])
+        payload = {"inputs": text}
+        response = requests.post(url, json=payload, timeout=CONFIG["ner_agent_timeout"])
         response.raise_for_status()
-        entities = response.json().get("entities", [])
-        logger.debug(f"Received {len(entities)} entities from agent {agent_name}")
+        entities = response.json().get("outputs", {}).get("entities", [])
         return entities
-    except requests.exceptions.Timeout:
-        logger.warning(f"Timeout invoking A2A agent {agent_name} at {url}. Returning empty list.")
-        return []
-    except requests.exceptions.RequestException as e:
-        status_code = e.response.status_code if e.response is not None else 'N/A'
-        logger.error(f"Error invoking A2A agent {agent_name} at {url} (Status: {status_code}): {e}. Returning empty list.")
-        return []
-    except Exception as e:
-        logger.error(f"Unexpected error invoking A2A agent {agent_name}: {e}", exc_info=True)
+    except Exception:
         return []
 
 # --- Internal Detection Functions (Presidio, Regex) ---
@@ -618,18 +601,18 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
     logger.info(f"Anonymization completed in {total_time:.2f} seconds, redacted {redaction_count} entities.")
     return redacted_text, classifications, invoked_agent_urls
 
-# --- Flask API ---
-app = Flask(__name__)
-CORS(app, resources={r"/anonymize": {"origins": os.environ.get("FRONT_END_URL", "http://localhost:5173")}})
-
-@app.route("/anonymize", methods=["POST"])
-def anonymize():
+# --- FastAPI Endpoints ---
+@app.post("/anonymize")
+async def anonymize(request: Request):
     """Main anonymization endpoint with detailed request logging."""
-    payload = request.get_json(force=True)
+    try:
+        payload = await request.json()
+    except:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
     if not payload or "text" not in payload:
-        logger.error("Received invalid payload for /anonymize: Missing 'text' field.")
-        return jsonify({"error": "No text provided"}), 400
+        logger.error("Missing 'text' field")
+        raise HTTPException(status_code=400, detail="No text provided")
 
     input_text = payload["text"]
     pii_options = payload.get("options")
@@ -653,7 +636,7 @@ def anonymize():
         logger.info(f"--- /anonymize Request End ---")
 
         current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-        return jsonify({
+        return JSONResponse({
             "anonymized_text": result_text,
             "timestamp": current_time,
             "user": "rushilpatel21"
@@ -661,14 +644,14 @@ def anonymize():
     except Exception as e:
         logger.error(f"Error processing /anonymize request: {e}", exc_info=True)
         logger.info(f"--- /anonymize Request End (Error) ---")
-        return jsonify({"error": f"Processing error: {str(e)}"}), 500
+        raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
 
-@app.route("/health", methods=["GET"])
-def health_check():
+@app.get("/health")
+async def health_check():
     """Health check endpoint showing dispatcher status and agent URLs."""
-    return jsonify({
+    return JSONResponse({
         "status": "ok",
-        "service": "Redactify Dispatcher Agent",
+        "service": "Redactify MCP Server",
         "core_services": list(CORE_SERVICES.keys()),
         "version": "2.1.1-A2A-MCP-MultiClass",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
@@ -681,14 +664,18 @@ def health_check():
         }
     })
 
-@app.route("/entities", methods=["POST"])
-def detect_entities_debug():
+@app.post("/entities")
+async def detect_entities_debug(request: Request):
     """Debugging endpoint to show detected entities without masking."""
     if not app.debug:
-        return jsonify({"error": "This endpoint is only available in debug mode"}), 403
-    data = request.get_json(force=True)
+        raise HTTPException(status_code=403, detail="Debug mode only")
+    try:
+        data = await request.json()
+    except:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
     if not data or "text" not in data:
-        return jsonify({"error": "No text provided"}), 400
+        raise HTTPException(status_code=400, detail="No text provided")
     input_text = data["text"]
     try:
         all_entities = run_detectors(input_text)[0]
@@ -701,7 +688,7 @@ def detect_entities_debug():
             "span": [e['start'], e['end']]
         } for e in merged_entities]
         response_entities.sort(key=lambda x: x['score'], reverse=True)
-        return jsonify({
+        return JSONResponse({
             "entities": response_entities,
             "total_count": len(response_entities),
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
@@ -709,15 +696,15 @@ def detect_entities_debug():
         })
     except Exception as e:
         logger.error(f"Error in /entities endpoint: {e}", exc_info=True)
-        return jsonify({"error": f"Error detecting entities: {str(e)}"}), 500
+        raise HTTPException(status_code=500, detail=f"Error detecting entities: {str(e)}")
 
-@app.route("/config", methods=["GET"])
-def get_config():
+@app.get("/config")
+async def get_config():
     """Return the current configuration for debugging purposes."""
     if not app.debug:
-        return jsonify({"error": "This endpoint is only available in debug mode"}), 403
+        raise HTTPException(status_code=403, detail="Debug mode only")
     safe_config = {k: v for k, v in CONFIG.items() if "key" not in k.lower() and "secret" not in k.lower() and "token" not in k.lower()}
-    return jsonify({
+    return JSONResponse({
         "config": safe_config,
         "core_services_loaded": list(CORE_SERVICES.keys()),
         "entity_types": sorted(list(set(filter(None, ENTITY_TYPE_MAPPING.values())))),
@@ -730,23 +717,22 @@ def get_config():
         "user": "rushilpatel21"
     })
 
-@app.route("/test", methods=["GET"])
-def test_connection():
+@app.get("/test")
+async def test_connection():
     """Simple test endpoint to verify connectivity."""
-    return jsonify({
+    return JSONResponse({
         "status": "ok",
-        "message": "Redactify Dispatcher API is running and operational",
+        "message": "Redactify MCP Server is running",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
     })
 
 # --- Main Execution ---
 if __name__ == "__main__":
+    import uvicorn
     port = int(os.environ.get("PORT", 8000))
     debug = os.environ.get("DEBUG", "False").lower() in ("true", "1", "t")
-    host = "0.0.0.0"
-
-    print(f"--- Redactify Dispatcher API v2.1.1 (A2A/MCP MultiClass Arch) ---")
-    print(f"Serving on http://{host}:{port}")
+    print(f"--- Redactify MCP Server v2.1.1 (A2A/MCP MultiClass Arch) ---")
+    print(f"Serving on http://0.0.0.0:{port}")
     print(f"Debug mode: {debug}")
     print(f"Worker threads: {CONFIG.get('max_workers')}")
     print(f"Core Services loaded: {list(CORE_SERVICES.keys())}")
@@ -757,5 +743,4 @@ if __name__ == "__main__":
     print(f"Technical NER (A2A): {CONFIG.get('a2a_technical_url')}")
     print(f"PII Specialized (A2A): {CONFIG.get('a2a_pii_specialized_url')}")
     print(f"--------------------------")
-
-    app.run(debug=debug, port=port, host=host)
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=debug)

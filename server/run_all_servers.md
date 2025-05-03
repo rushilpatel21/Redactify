@@ -1,31 +1,31 @@
 Open separate terminal instances (like Command Prompt or PowerShell) in the `Redactify` directory and run one command in each:
 
-1.  **Run MCP Classifier (Port 8001 by default):**
+1.  **Run MCP Classifier (Port 8001):**  
     ```bash
     python server/mcp_classifier/classifier_server.py
     ```
 
-2.  **Run General NER Agent (Port 8002 by default):**
+2.  **Run General NER Agent (Port 8002):**  
     ```bash
     python server/a2a_ner_general/general_ner_agent.py
     ```
 
-3.  **Run Medical NER Agent (Port 8003 by default):**
+3.  **Run Medical NER Agent (Port 8003):**  
     ```bash
     python server/a2a_ner_medical/medical_ner_agent.py
     ```
 
-4.  **Run Technical NER Agent (Port 8004 by default):**
+4.  **Run Technical NER Agent (Port 8004):**  
     ```bash
     python server/a2a_ner_technical/technical_ner_agent.py
     ```
 
-5.  **Run PII Specialized NER Agent (Port 8005 by default):**
+5.  **Run PII Specialized NER Agent (Port 8005):**  
     ```bash
     python server/a2a_ner_pii_specialized/pii_specialized_ner_agent.py
     ```
 
-6.  **Run Main Dispatcher Server (Port 8000 by default):**
+6.  **Run Dispatcher (Port 8000):**  
     ```bash
     python server/server.py
     ```
