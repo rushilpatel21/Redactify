@@ -265,8 +265,11 @@ def get_regex_entities(text: str) -> list:
     return regex_entities
 
 # --- Core Logic (Modified run_detectors) ---
-def run_detectors(text: str) -> list:
-    """Runs internal detectors and calls relevant A2A agents based on classification list."""
+def run_detectors(text: str) -> tuple[list, list, list]:
+    """
+    Runs internal detectors and calls relevant A2A agents based on classification list.
+    Returns a tuple: (all_entities, classifications, invoked_agent_urls)
+    """
     all_entities = []
     start_time = time.time()
 
@@ -285,6 +288,7 @@ def run_detectors(text: str) -> list:
         agent_calls.append((invoke_a2a_agent, CONFIG["a2a_technical_url"]))
 
     unique_agent_calls = list({call[1]: call for call in agent_calls}.values())
+    invoked_agent_urls = [url for func, url in unique_agent_calls]
 
     with ThreadPoolExecutor(max_workers=CONFIG["max_workers"]) as executor:
         futures = []
@@ -306,7 +310,7 @@ def run_detectors(text: str) -> list:
 
     duration = time.time() - start_time
     logger.info(f"All detection tasks completed in {duration:.2f}s. Total potential entities: {len(all_entities)}")
-    return all_entities
+    return all_entities, classifications, invoked_agent_urls
 
 # --- Masking, Merging, Verification Logic ---
 def pseudonymize_value(value: str, entity_type: str) -> str:
@@ -555,16 +559,19 @@ def merge_overlapping_entities(entities: list, text: str) -> list:
     return final_entities
 
 # --- Anonymization Function ---
-def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = True) -> str:
-    """Anonymization function using the new distributed detection approach."""
-    if not text: return ""
+def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = True) -> tuple[str, list, list]:
+    """
+    Anonymization function using the new distributed detection approach.
+    Returns a tuple: (redacted_text, classifications, invoked_agent_urls)
+    """
+    if not text: return "", [], []
     options = DEFAULT_PII_OPTIONS.copy()
     if pii_options: options.update(pii_options)
 
     logger.info("Starting distributed entity detection...")
     start_time = time.time()
 
-    all_entities = run_detectors(text)
+    all_entities, classifications, invoked_agent_urls = run_detectors(text)
 
     merged_entities = merge_overlapping_entities(all_entities, text)
     logger.info(f"Merged into {len(merged_entities)} distinct entities for redaction.")
@@ -573,12 +580,12 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
 
     redaction_count = 0
     redacted_spans = {}
-    original_text_length = len(text)
+    redacted_text = text
 
     for entity in merged_entities:
         start, end = entity['start'], entity['end']
 
-        current_length = len(text)
+        current_length = len(redacted_text)
         if start >= current_length or end > current_length or start < 0:
              logger.warning(f"Skipping entity with invalid span after modifications: {entity} (text length: {current_length})")
              continue
@@ -586,7 +593,7 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
         if any(span_start <= start and end <= span_end for (span_start, span_end) in redacted_spans.keys()):
             continue
 
-        original_token = text[start:end]
+        original_token = redacted_text[start:end]
         entity_type = entity['normalized_type']
 
         if original_token in BLOCKLIST:
@@ -599,7 +606,7 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
                 else: masked = smart_partial_mask(original_token, entity_type)
                 logger.debug(f"Masking '{original_token}' ({entity_type}) to '{masked}'")
 
-                text = text[:start] + masked + text[end:]
+                redacted_text = redacted_text[:start] + masked + redacted_text[end:]
 
                 redacted_spans[(start, end)] = True
                 redaction_count += 1
@@ -609,7 +616,7 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
 
     total_time = time.time() - start_time
     logger.info(f"Anonymization completed in {total_time:.2f} seconds, redacted {redaction_count} entities.")
-    return text
+    return redacted_text, classifications, invoked_agent_urls
 
 # --- Flask API ---
 app = Flask(__name__)
@@ -617,23 +624,43 @@ CORS(app, resources={r"/anonymize": {"origins": os.environ.get("FRONT_END_URL", 
 
 @app.route("/anonymize", methods=["POST"])
 def anonymize():
-    """Main anonymization endpoint."""
-    data = request.get_json(force=True)
-    if not data or "text" not in data:
+    """Main anonymization endpoint with detailed request logging."""
+    payload = request.get_json(force=True)
+
+    if not payload or "text" not in payload:
+        logger.error("Received invalid payload for /anonymize: Missing 'text' field.")
         return jsonify({"error": "No text provided"}), 400
-    input_text = data["text"]
-    pii_options = data.get("options")
-    full_redaction = data.get("full_redaction", True)
+
+    input_text = payload["text"]
+    pii_options = payload.get("options")
+    full_redaction = payload.get("full_redaction", True)
+
+    logger.info(f"--- /anonymize Request Received ---")
     try:
-        result = anonymize_text(input_text, pii_options, full_redaction)
+        log_payload = payload.copy()
+        if len(log_payload.get("text", "")) > 500:
+             log_payload["text"] = log_payload["text"][:500] + "... (truncated)"
+        logger.info(f"Payload: {json.dumps(log_payload, indent=2)}")
+    except Exception as log_e:
+        logger.error(f"Error formatting payload for logging: {log_e}")
+        logger.info(f"Raw Payload (approx): {payload}")
+
+    try:
+        result_text, classifications, invoked_agents = anonymize_text(input_text, pii_options, full_redaction)
+
+        logger.info(f"MCP Classifications: {classifications}")
+        logger.info(f"Invoked A2A Agents: {invoked_agents}")
+        logger.info(f"--- /anonymize Request End ---")
+
         current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         return jsonify({
-            "anonymized_text": result,
+            "anonymized_text": result_text,
             "timestamp": current_time,
             "user": "rushilpatel21"
         })
     except Exception as e:
-        logger.error(f"Error processing request: {e}", exc_info=True)
+        logger.error(f"Error processing /anonymize request: {e}", exc_info=True)
+        logger.info(f"--- /anonymize Request End (Error) ---")
         return jsonify({"error": f"Processing error: {str(e)}"}), 500
 
 @app.route("/health", methods=["GET"])
@@ -664,7 +691,7 @@ def detect_entities_debug():
         return jsonify({"error": "No text provided"}), 400
     input_text = data["text"]
     try:
-        all_entities = run_detectors(input_text)
+        all_entities = run_detectors(input_text)[0]
         merged_entities = merge_overlapping_entities(all_entities, input_text)
         response_entities = [{
             "text": input_text[e['start']:e['end']],
