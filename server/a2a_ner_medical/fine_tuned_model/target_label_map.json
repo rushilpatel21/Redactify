@@ -1,0 +1,36 @@
+{
+  "id2label": {
+    "0": "O",
+    "1": "B-DATE",
+    "2": "I-DATE",
+    "3": "B-HOSPITAL",
+    "4": "I-HOSPITAL",
+    "5": "B-PATIENT",
+    "6": "I-PATIENT",
+    "7": "B-DOCTOR",
+    "8": "I-DOCTOR",
+    "9": "B-AGE",
+    "10": "I-AGE",
+    "11": "B-ID",
+    "12": "I-ID",
+    "13": "B-LOCATION",
+    "14": "I-LOCATION"
+  },
+  "label2id": {
+    "O": 0,
+    "B-DATE": 1,
+    "I-DATE": 2,
+    "B-HOSPITAL": 3,
+    "I-HOSPITAL": 4,
+    "B-PATIENT": 5,
+    "I-PATIENT": 6,
+    "B-DOCTOR": 7,
+    "I-DOCTOR": 8,
+    "B-AGE": 9,
+    "I-AGE": 10,
+    "B-ID": 11,
+    "I-ID": 12,
+    "B-LOCATION": 13,
+    "I-LOCATION": 14
+  }
+}
