@@ -14,6 +14,7 @@ from presidio_anonymizer.entities import OperatorConfig
 from flask_cors import CORS
 import requests
 from dotenv import load_dotenv
+from typing import List
 
 # --- Load Environment Variables ---
 load_dotenv()
@@ -123,24 +124,31 @@ def load_core_services():
 CORE_SERVICES = load_core_services()
 
 # --- Agent/Service Communication ---
-def get_text_classification(text: str) -> str:
-    """Calls the MCP Text Classifier service."""
+def get_text_classification(text: str) -> List[str]:
+    """Calls the MCP Text Classifier service and returns a list of classifications."""
     url = CONFIG["mcp_classifier_url"] + "/classify"
+    default_classification = ["general"]
     try:
         response = requests.post(url, json={"text": text}, timeout=CONFIG["classifier_timeout"])
         response.raise_for_status()
-        classification = response.json().get("classification", "general")
-        logger.debug(f"Received classification '{classification}' from {url}")
-        return classification
+        classifications = response.json().get("classifications", default_classification)
+        if not isinstance(classifications, list) or not classifications:
+            logger.warning(f"Received invalid classification data from {url}: {classifications}. Defaulting.")
+            return default_classification
+        logger.debug(f"Received classifications {classifications} from {url}")
+        return classifications
     except requests.exceptions.Timeout:
-        logger.warning(f"Timeout contacting text classifier at {url}. Defaulting to 'general'.")
-        return "general"
+        logger.warning(f"Timeout contacting text classifier at {url}. Defaulting to {default_classification}.")
+        return default_classification
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error contacting text classifier at {url}: {e}. Defaulting to 'general'.")
-        return "general"
+        logger.error(f"Error contacting text classifier at {url}: {e}. Defaulting to {default_classification}.")
+        return default_classification
+    except json.JSONDecodeError as e:
+        logger.error(f"Error decoding JSON response from text classifier at {url}: {e}. Defaulting to {default_classification}.")
+        return default_classification
     except Exception as e:
         logger.error(f"Unexpected error during text classification call: {e}", exc_info=True)
-        return "general"
+        return default_classification
 
 def invoke_a2a_agent(agent_url: str, text: str) -> list:
     """Calls a specific A2A NER Agent."""
@@ -196,7 +204,7 @@ def has_context(text, span_start, span_end, context_words):
     matched_text = text[span_start:span_end]
     if matched_text in BLOCKLIST: return False
     if matched_text.startswith("Project") and len(matched_text.split()) <= 2: return False
-    context_size = CONFIG["context_window"]
+    context_size = CONFIG.get("context_window", 6)
     text_before = text[:span_start].split()[-context_size:] if span_start > 0 else []
     text_after = text[span_end:].split()[:context_size] if span_end < len(text) else []
     context_text = ' '.join(text_before + text_after).lower()
@@ -258,12 +266,12 @@ def get_regex_entities(text: str) -> list:
 
 # --- Core Logic (Modified run_detectors) ---
 def run_detectors(text: str) -> list:
-    """Runs internal detectors and calls relevant A2A agents based on classification."""
+    """Runs internal detectors and calls relevant A2A agents based on classification list."""
     all_entities = []
     start_time = time.time()
 
-    classification = get_text_classification(text)
-    logger.info(f"Text classified as '{classification}'. Determining detectors to run...")
+    classifications = get_text_classification(text)
+    logger.info(f"Text classified as: {classifications}. Determining detectors to run...")
 
     agent_calls = []
     agent_calls.append((invoke_a2a_agent, CONFIG["a2a_general_url"]))
@@ -271,10 +279,12 @@ def run_detectors(text: str) -> list:
     if CONFIG["enable_pii_specialized"]:
         agent_calls.append((invoke_a2a_agent, CONFIG["a2a_pii_specialized_url"]))
 
-    if classification == "medical" and CONFIG["enable_medical_pii"]:
+    if "medical" in classifications and CONFIG["enable_medical_pii"]:
         agent_calls.append((invoke_a2a_agent, CONFIG["a2a_medical_url"]))
-    if classification == "technical" and CONFIG["enable_technical_ner"]:
+    if "technical" in classifications and CONFIG["enable_technical_ner"]:
         agent_calls.append((invoke_a2a_agent, CONFIG["a2a_technical_url"]))
+
+    unique_agent_calls = list({call[1]: call for call in agent_calls}.values())
 
     with ThreadPoolExecutor(max_workers=CONFIG["max_workers"]) as executor:
         futures = []
@@ -282,7 +292,7 @@ def run_detectors(text: str) -> list:
         futures.append(executor.submit(get_presidio_entities, text))
         futures.append(executor.submit(get_regex_entities, text))
 
-        for func, url in agent_calls:
+        for func, url in unique_agent_calls:
             logger.debug(f"Submitting call to agent: {url}")
             futures.append(executor.submit(func, url, text))
 
@@ -308,29 +318,31 @@ def full_mask_token(token: str, entity_type: str) -> str:
     return pseudonymize_value(token, entity_type.upper())
 
 def partial_mask_token(token: str) -> str:
-    n = len(token); mask_char = CONFIG["partial_mask_char"]
+    n = len(token); mask_char = CONFIG.get("partial_mask_char", "*")
     if n <= 2: return mask_char * n
     elif n <= 5: return token[0] + mask_char * (n - 1)
     elif n <= 10: return token[0:2] + mask_char * (n - 4) + token[-2:]
     else: return token[0:2] + mask_char * (n - 5) + token[-3:]
 
 def mask_email(email: str) -> str:
+    mask_char = CONFIG.get("partial_mask_char", "*")
     try: local, domain = email.split("@")
     except Exception: return partial_mask_token(email)
-    if len(local) > 4: local_masked = local[0:2] + CONFIG["partial_mask_char"] * (len(local) - 4) + local[-2:]
-    else: local_masked = local[0] + CONFIG["partial_mask_char"] * (len(local) - 1)
+    if len(local) > 4: local_masked = local[0:2] + mask_char * (len(local) - 4) + local[-2:]
+    else: local_masked = local[0] + mask_char * (len(local) - 1)
     domain_parts = domain.split('.')
     if len(domain_parts) > 1:
         tld = domain_parts[-1]; domain_name = '.'.join(domain_parts[:-1])
-        if len(domain_name) > 5: domain_masked = domain_name[0:2] + CONFIG["partial_mask_char"] * (len(domain_name) - 2)
-        else: domain_masked = CONFIG["partial_mask_char"] * len(domain_name)
+        if len(domain_name) > 5: domain_masked = domain_name[0:2] + mask_char * (len(domain_name) - 2)
+        else: domain_masked = mask_char * len(domain_name)
         masked_domain = domain_masked + '.' + tld
-    else: masked_domain = CONFIG["partial_mask_char"] * len(domain)
+    else: masked_domain = mask_char * len(domain)
     return local_masked + "@" + masked_domain
 
 def mask_url(url: str) -> str: return full_mask_token(url, "URL")
 
 def partial_mask_url(url: str) -> str:
+    mask_char = CONFIG.get("partial_mask_char", "*")
     try: parsed = urlparse(url)
     except Exception: return partial_mask_token(url)
     scheme, netloc, path, params, query, fragment = parsed.scheme, parsed.netloc, parsed.path, parsed.params, parsed.query, parsed.fragment
@@ -339,56 +351,58 @@ def partial_mask_url(url: str) -> str:
     parts = domain.split('.'); masked_parts = []
     for i, part in enumerate(parts):
         if i == len(parts) - 1 and len(parts) > 1: masked_parts.append(part)
-        elif len(part) > 3: masked_parts.append(part[0:2] + CONFIG["partial_mask_char"] * (len(part) - 2))
-        else: masked_parts.append(CONFIG["partial_mask_char"] * len(part))
+        elif len(part) > 3: masked_parts.append(part[0:2] + mask_char * (len(part) - 2))
+        else: masked_parts.append(mask_char * len(part))
     masked_netloc = '.'.join(masked_parts) + port
     if path:
         path_segments = path.split('/'); masked_segments = []
         for segment in path_segments:
             if not segment: masked_segments.append(segment); continue
             if segment.lower() in ['api', 'v1', 'v2', 'v3', 'dashboard', 'login', 'public', 'static']: masked_segments.append(segment)
-            elif len(segment) >= 5: masked_segments.append(segment[0:2] + CONFIG["partial_mask_char"] * (len(segment) - 2))
-            else: masked_segments.append(CONFIG["partial_mask_char"] * len(segment))
+            elif len(segment) >= 5: masked_segments.append(segment[0:2] + mask_char * (len(segment) - 2))
+            else: masked_segments.append(mask_char * len(segment))
         masked_path = '/'.join(masked_segments)
     else: masked_path = path
     return urlunparse((scheme, masked_netloc, masked_path, params, query, fragment))
 
 def mask_phone(phone: str) -> str:
+    mask_char = CONFIG.get("partial_mask_char", "*")
     digits_only = re.sub(r'[^0-9+]', '', phone)
-    if len(digits_only) <= 4: return CONFIG["partial_mask_char"] * len(phone)
+    if len(digits_only) <= 4: return mask_char * len(phone)
     if digits_only.startswith('+'):
-        prefix_end = digits_only.find('9'); 
+        prefix_end = digits_only.find('9');
         if prefix_end != -1 and prefix_end < 4: prefix = digits_only[:prefix_end+1]; main_number = digits_only[prefix_end+1:]
         else: prefix = '+'; main_number = digits_only[1:]
     else: prefix = ''; main_number = digits_only
-    if len(main_number) > 4: masked_number = CONFIG["partial_mask_char"] * (len(main_number) - 4) + main_number[-4:]
-    else: masked_number = CONFIG["partial_mask_char"] * len(main_number)
+    if len(main_number) > 4: masked_number = mask_char * (len(main_number) - 4) + main_number[-4:]
+    else: masked_number = mask_char * len(main_number)
     masked_digits = prefix + masked_number; result = ''; digit_index = 0
     for char in phone:
         if char.isdigit() or char == '+':
             if digit_index < len(masked_digits): result += masked_digits[digit_index]; digit_index += 1
-            else: result += CONFIG["partial_mask_char"]
+            else: result += mask_char
         else: result += char
     return result
 
 def smart_partial_mask(text: str, entity_type: str) -> str:
+    mask_char = CONFIG.get("partial_mask_char", "*")
     if not text: return text
     if entity_type == "EMAIL_ADDRESS": return mask_email(text)
     elif entity_type == "URL": return partial_mask_url(text)
     elif entity_type == "PHONE_NUMBER": return mask_phone(text)
     elif entity_type == "CREDIT_CARD":
         digits_only = re.sub(r'[^0-9]', '', text)
-        if len(digits_only) >= 4: return CONFIG["partial_mask_char"] * (len(text) - 4) + text[-4:]
+        if len(digits_only) >= 4: return mask_char * (len(text) - 4) + text[-4:]
     elif entity_type == "SSN":
-        if len(text) > 4: return CONFIG["partial_mask_char"] * (len(text) - 4) + text[-4:]
+        if len(text) > 4: return mask_char * (len(text) - 4) + text[-4:]
     elif entity_type in ["PASSWORD", "API_KEY", "AUTHENTICATION", "DEPLOY_TOKEN"]:
-        if len(text) > 8: return text[:2] + CONFIG["partial_mask_char"] * (len(text) - 2)
-        else: return CONFIG["partial_mask_char"] * len(text)
+        if len(text) > 8: return text[:2] + mask_char * (len(text) - 2)
+        else: return mask_char * len(text)
     elif entity_type == "DATE_TIME":
         if len(text) > 6 and re.search(r'\d{4}', text):
             date_parts = re.split(r'[-/\s:]', text)
             if len(date_parts) > 2 and len(date_parts[0]) == 4:
-                date_parts[0] = CONFIG["partial_mask_char"] * 4
+                date_parts[0] = mask_char * 4
                 original_separators = re.findall(r'[-/\s:]', text)
                 reconstructed = date_parts[0]
                 for i, part in enumerate(date_parts[1:]):
@@ -398,7 +412,7 @@ def smart_partial_mask(text: str, entity_type: str) -> str:
                         reconstructed += "-" + part
                 return reconstructed
             elif len(date_parts) > 2 and len(date_parts[-1]) == 4:
-                 date_parts[-1] = CONFIG["partial_mask_char"] * 4
+                 date_parts[-1] = mask_char * 4
                  original_separators = re.findall(r'[-/\s:]', text)
                  reconstructed = date_parts[0]
                  for i, part in enumerate(date_parts[1:]):
@@ -423,7 +437,7 @@ def verify_entity(entity_type, text, confidence_score):
         "PASSWORD": 0.75, "API_KEY": 0.75, "CREDENTIAL": 0.75, "FINANCIAL": 0.7,
         "ORGANIZATION": 0.65, "DEVICE": 0.75, "MEDICAL": 0.7, "PERSON": 0.68
     }
-    min_confidence = type_confidence_thresholds.get(entity_type, CONFIG["confidence_threshold"])
+    min_confidence = type_confidence_thresholds.get(entity_type, CONFIG.get("confidence_threshold", 0.68))
     if confidence_score < min_confidence: return False
     if entity_type == "PASSWORD":
         has_digits = bool(re.search(r'\d', text)); has_letters = bool(re.search(r'[a-zA-Z]', text)); has_special = bool(re.search(r'[^a-zA-Z0-9\s]', text))
@@ -504,7 +518,7 @@ def merge_overlapping_entities(entities: list, text: str) -> list:
     for entity in entities:
         entity['score'] = score_entity(entity, text)
         entity['normalized_type'] = normalize_entity(entity)
-    threshold = CONFIG["confidence_threshold"]
+    threshold = CONFIG.get("confidence_threshold", 0.68)
     entities = [e for e in entities if e.get('score', 0) >= threshold and e['normalized_type'] is not None]
     if not entities: return []
     entities.sort(key=lambda x: (x['start'], -x['end']))
@@ -514,21 +528,25 @@ def merge_overlapping_entities(entities: list, text: str) -> list:
         overlaps = False
         last_best_entity = result[-1] if result else None
         if last_best_entity and entity['start'] < last_best_entity['end']:
-             best_entity = select_best_entity(current_group, text)
-             if best_entity: result.append(best_entity)
+             best_of_group = select_best_entity(current_group, text)
+             if best_of_group: result.append(best_of_group)
              current_group = [entity]
              continue
+
         for current in current_group:
             if entity['start'] < current['end'] and current['start'] < entity['end']:
                 overlaps = True; break
+
         if overlaps: current_group.append(entity)
         else:
-            best_entity = select_best_entity(current_group, text)
-            if best_entity: result.append(best_entity)
+            best_of_group = select_best_entity(current_group, text)
+            if best_of_group: result.append(best_of_group)
             current_group = [entity]
+
     if current_group:
         best_entity = select_best_entity(current_group, text)
         if best_entity: result.append(best_entity)
+
     final_entities = []
     for entity in result:
         entity_text = text[entity['start']:entity['end']]
@@ -559,9 +577,12 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
 
     for entity in merged_entities:
         start, end = entity['start'], entity['end']
-        if start >= len(text) or end > len(text) or start < 0:
-             logger.warning(f"Skipping entity with invalid span after modifications: {entity}")
+
+        current_length = len(text)
+        if start >= current_length or end > current_length or start < 0:
+             logger.warning(f"Skipping entity with invalid span after modifications: {entity} (text length: {current_length})")
              continue
+
         if any(span_start <= start and end <= span_end for (span_start, span_end) in redacted_spans.keys()):
             continue
 
@@ -577,9 +598,12 @@ def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = T
                 if full_redaction: masked = full_mask_token(original_token, entity_type)
                 else: masked = smart_partial_mask(original_token, entity_type)
                 logger.debug(f"Masking '{original_token}' ({entity_type}) to '{masked}'")
+
                 text = text[:start] + masked + text[end:]
+
                 redacted_spans[(start, end)] = True
                 redaction_count += 1
+
             except Exception as e:
                 logger.error(f"Error masking token '{original_token}' type {entity_type}: {e}", exc_info=True)
 
@@ -619,14 +643,14 @@ def health_check():
         "status": "ok",
         "service": "Redactify Dispatcher Agent",
         "core_services": list(CORE_SERVICES.keys()),
-        "version": "2.1.0-A2A-MCP",
+        "version": "2.1.1-A2A-MCP-MultiClass",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
         "config_urls": {
-            "classifier": CONFIG["mcp_classifier_url"],
-            "general_ner": CONFIG["a2a_general_url"],
-            "medical_ner": CONFIG["a2a_medical_url"],
-            "technical_ner": CONFIG["a2a_technical_url"],
-            "pii_specialized": CONFIG["a2a_pii_specialized_url"],
+            "classifier": CONFIG.get("mcp_classifier_url"),
+            "general_ner": CONFIG.get("a2a_general_url"),
+            "medical_ner": CONFIG.get("a2a_medical_url"),
+            "technical_ner": CONFIG.get("a2a_technical_url"),
+            "pii_specialized": CONFIG.get("a2a_pii_specialized_url"),
         }
     })
 
@@ -665,15 +689,15 @@ def get_config():
     """Return the current configuration for debugging purposes."""
     if not app.debug:
         return jsonify({"error": "This endpoint is only available in debug mode"}), 403
-    safe_config = {k: v for k, v in CONFIG.items() if "key" not in k.lower() and "secret" not in k.lower()}
+    safe_config = {k: v for k, v in CONFIG.items() if "key" not in k.lower() and "secret" not in k.lower() and "token" not in k.lower()}
     return jsonify({
         "config": safe_config,
         "core_services_loaded": list(CORE_SERVICES.keys()),
         "entity_types": sorted(list(set(filter(None, ENTITY_TYPE_MAPPING.values())))),
         "defaults": {
-            "threshold": CONFIG["confidence_threshold"],
-            "workers": CONFIG["max_workers"],
-            "partial_mask_char": CONFIG["partial_mask_char"]
+            "threshold": CONFIG.get("confidence_threshold"),
+            "workers": CONFIG.get("max_workers"),
+            "partial_mask_char": CONFIG.get("partial_mask_char")
         },
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
         "user": "rushilpatel21"
@@ -694,17 +718,17 @@ if __name__ == "__main__":
     debug = os.environ.get("DEBUG", "False").lower() in ("true", "1", "t")
     host = "0.0.0.0"
 
-    print(f"--- Redactify Dispatcher API v2.1.0 (A2A/MCP Arch) ---")
+    print(f"--- Redactify Dispatcher API v2.1.1 (A2A/MCP MultiClass Arch) ---")
     print(f"Serving on http://{host}:{port}")
     print(f"Debug mode: {debug}")
-    print(f"Worker threads: {CONFIG['max_workers']}")
+    print(f"Worker threads: {CONFIG.get('max_workers')}")
     print(f"Core Services loaded: {list(CORE_SERVICES.keys())}")
     print(f"--- Agent/Service URLs ---")
-    print(f"Classifier (MCP): {CONFIG['mcp_classifier_url']}")
-    print(f"General NER (A2A): {CONFIG['a2a_general_url']}")
-    print(f"Medical NER (A2A): {CONFIG['a2a_medical_url']}")
-    print(f"Technical NER (A2A): {CONFIG['a2a_technical_url']}")
-    print(f"PII Specialized (A2A): {CONFIG['a2a_pii_specialized_url']}")
+    print(f"Classifier (MCP): {CONFIG.get('mcp_classifier_url')}")
+    print(f"General NER (A2A): {CONFIG.get('a2a_general_url')}")
+    print(f"Medical NER (A2A): {CONFIG.get('a2a_medical_url')}")
+    print(f"Technical NER (A2A): {CONFIG.get('a2a_technical_url')}")
+    print(f"PII Specialized (A2A): {CONFIG.get('a2a_pii_specialized_url')}")
     print(f"--------------------------")
 
     app.run(debug=debug, port=port, host=host)

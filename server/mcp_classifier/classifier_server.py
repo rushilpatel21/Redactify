@@ -1,9 +1,10 @@
 import os
 import logging
-import time # Added for logging
+import time
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from typing import List, Set
 
 load_dotenv()
 
@@ -13,48 +14,67 @@ logger = logging.getLogger("MCPClassifierServer")
 app = FastAPI(title="Text Classifier MCP Server")
 
 # --- Simple Keyword-Based Classification ---
-# In a real scenario, load a pre-trained fast classification model here
-MEDICAL_KEYWORDS = {"patient", "doctor", "hospital", "diagnosis", "medical", "clinic", "treatment", "prescription", "mrn", "hipaa", "phi"}
-TECHNICAL_KEYWORDS = {"code", "software", "api", "server", "debug", "technical", "error", "python", "java", "javascript", "bug", "feature", "github", "gitlab", "token", "key", "secret", "password", "credential"}
+MEDICAL_KEYWORDS = {
+    "patient", "doctor", "hospital", "diagnosis", "medical", "clinic", "treatment",
+    "prescription", "mrn", "hipaa", "phi", "physician", "nurse", "ward", "ecg",
+    "medication", "symptoms", "admission", "discharge", "radiology", "pathology"
+}
+TECHNICAL_KEYWORDS = {
+    "code", "software", "api", "server", "debug", "technical", "error", "python",
+    "java", "javascript", "bug", "feature", "github", "gitlab", "token", "key",
+    "secret", "password", "credential", "ip address", "mac address", "network",
+    "database", "query", "stacktrace", "deployment", "ssh", "url", "http"
+}
 
-def simple_classify(text: str) -> str:
-    """Classifies text based on keywords."""
+def simple_classify(text: str) -> List[str]:
+    """
+    Classifies text based on keywords, returning a list of relevant categories.
+    """
     if not text:
-        return "general"
+        return ["general"]
+
     # Limit text length for performance if needed
-    text_to_scan = text[:5000].lower() # Scan first 5000 chars
+    text_to_scan = text.lower() # Scan first 10000 chars
     text_lower_words = set(text_to_scan.split())
 
-    # Prioritize technical if sensitive keywords are present
+    classifications: Set[str] = set() # Use a set to avoid duplicates
+
+    # Check for medical keywords
+    if text_lower_words.intersection(MEDICAL_KEYWORDS):
+        classifications.add("medical")
+
+    # Check for technical keywords
     if text_lower_words.intersection(TECHNICAL_KEYWORDS):
-        return "technical"
-    elif text_lower_words.intersection(MEDICAL_KEYWORDS):
-        return "medical"
-    else:
-        return "general"
+        classifications.add("technical")
+
+    # If no specific category is found, default to general
+    if not classifications:
+        classifications.add("general")
+
+    return sorted(list(classifications)) # Return sorted list
 
 # --- API Models ---
 class TextInput(BaseModel):
     text: str
 
 class ClassificationOutput(BaseModel):
-    classification: str
+    classifications: List[str]
 
 # --- API Endpoint (MCP Simulation) ---
 @app.post("/classify",
           response_model=ClassificationOutput,
           summary="Classify input text",
-          description="Simulates an MCP endpoint to get text classification (e.g., general, medical, technical).")
+          description="Returns a list of relevant classifications (e.g., ['general', 'medical']).")
 async def classify_endpoint(data: TextInput):
-    """Receives text and returns its classification."""
+    """Receives text and returns its classification(s)."""
     start_time = time.time()
     if not data.text:
-        raise HTTPException(status_code=400, detail="No text provided")
+        return {"classifications": ["general"]}
     try:
-        classification = simple_classify(data.text)
+        classification_list = simple_classify(data.text)
         duration = time.time() - start_time
-        logger.info(f"Classified text snippet as: {classification} in {duration:.4f}s")
-        return {"classification": classification}
+        logger.info(f"Classified text snippet as: {classification_list} in {duration:.4f}s")
+        return {"classifications": classification_list}
     except Exception as e:
         logger.error(f"Error during classification: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error during classification: {e}")
