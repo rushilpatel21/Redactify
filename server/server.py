@@ -135,28 +135,63 @@ CORE_SERVICES = load_core_services()
 
 # --- Agent/Service Communication ---
 def get_text_classification(text: str) -> List[str]:
-    """Calls the MCP Text Classifier service and returns a list of classifications."""
-    url = CONFIG["mcp_classifier_url"] + "/predict"
+    """Calls the MCP Text Classifier service using JSON-RPC."""
+    url = CONFIG["mcp_classifier_url"] + "/mcp"  # Changed from /predict to /mcp
     default_classification = ["general"]
+    
     try:
-        payload = {"inputs": text}
+        # JSON-RPC 2.0 format
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "predict",
+            "params": {
+                "inputs": text
+            },
+            "id": 1  # Request identifier
+        }
+        
         response = requests.post(url, json=payload, timeout=CONFIG["classifier_timeout"])
         response.raise_for_status()
-        classifications = response.json().get("outputs", {}).get("classifications", default_classification)
+        
+        # Extract classifications from JSON-RPC result
+        result = response.json()
+        if "error" in result:
+            logger.error(f"JSON-RPC error from classifier: {result['error']}")
+            return default_classification
+            
+        classifications = result.get("result", {}).get("classifications", default_classification)
         return classifications
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error calling classifier: {e}", exc_info=True)
         return default_classification
 
 def invoke_a2a_agent(agent_url: str, text: str) -> list:
-    """Calls a specific A2A NER Agent using MCP."""
-    url = agent_url + "/predict"
+    """Calls a specific A2A NER Agent using MCP JSON-RPC."""
+    url = agent_url + "/mcp"  # Changed from /predict to /mcp
     try:
-        payload = {"inputs": text}
+        # JSON-RPC 2.0 format
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "predict",
+            "params": {
+                "inputs": text
+            },
+            "id": 1  # Request identifier
+        }
+        
         response = requests.post(url, json=payload, timeout=CONFIG["ner_agent_timeout"])
         response.raise_for_status()
-        entities = response.json().get("outputs", {}).get("entities", [])
+        
+        # Extract entities from JSON-RPC result format
+        result = response.json()
+        if "error" in result:
+            logger.error(f"JSON-RPC error from agent {agent_url}: {result['error']}")
+            return []
+            
+        entities = result.get("result", {}).get("entities", [])
         return entities
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error calling agent {agent_url}: {e}", exc_info=True)
         return []
 
 # --- Internal Detection Functions (Presidio, Regex) ---

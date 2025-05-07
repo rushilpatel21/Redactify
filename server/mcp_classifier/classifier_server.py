@@ -1,12 +1,12 @@
 import os
 import logging
 import time
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from dotenv import load_dotenv
-from typing import List, Any, Dict, Optional
-from transformers import pipeline, AutoModelForSequenceClassification, AutoTokenizer
 import torch
+from mcp.server.fastmcp import FastMCP
+from typing import List, Any, Dict, Optional
+from transformers import pipeline
+from dotenv import load_dotenv
+import json
 
 # --- Basic Setup ---
 load_dotenv()
@@ -18,33 +18,32 @@ MODEL_NAME = os.environ.get("MCP_MODEL_NAME", "MoritzLaurer/mDeBERTa-v3-base-mnl
 CANDIDATE_LABELS = ["medical", "technical", "general"]
 CONFIDENCE_THRESHOLD = float(os.environ.get("MCP_THRESHOLD", 0.50))
 
-# --- Global Variables ---
+# --- Load model at module initialization ---
+logger.info(f"Loading zero-shot model '{MODEL_NAME}'")
 classifier_pipeline = None
-app = FastAPI(title="Zero-Shot Text Classifier MCP Server")
+try:
+    device = 0 if torch.cuda.is_available() else -1
+    logger.info(f"Loading zero-shot model '{MODEL_NAME}' on device: {'GPU' if device == 0 else 'CPU'}")
+    classifier_pipeline = pipeline(
+        "zero-shot-classification",
+        model=MODEL_NAME,
+        device=device
+    )
+    logger.info("Zero-shot classification pipeline loaded successfully.")
+except Exception as e:
+    logger.error(f"Failed to load zero-shot model '{MODEL_NAME}': {e}", exc_info=True)
+    classifier_pipeline = None
 
-# --- Model Loading ---
-@app.on_event("startup")
-async def load_model():
-    """Load the zero-shot classification pipeline at startup."""
-    global classifier_pipeline
-    try:
-        device = 0 if torch.cuda.is_available() else -1
-        logger.info(f"Loading zero-shot model '{MODEL_NAME}' on device: {'GPU' if device == 0 else 'CPU'}")
-        classifier_pipeline = pipeline(
-            "zero-shot-classification",
-            model=MODEL_NAME,
-            device=device
-        )
-        logger.info("Zero-shot classification pipeline loaded successfully.")
-    except Exception as e:
-        logger.error(f"Failed to load zero-shot model '{MODEL_NAME}': {e}", exc_info=True)
-        classifier_pipeline = None
+# --- MCP Server Setup ---
+mcp = FastMCP(
+    name="ZeroShotClassifier",
+    version="1.0.0",
+    description="Zero-shot text classifier for determining text categories"
+)
 
 # --- Classification Logic ---
 def model_classify(text: str) -> List[str]:
-    """
-    Classifies text using the zero-shot model, returning a list of relevant categories.
-    """
+    """Classifies text using the zero-shot model, returning a list of relevant categories."""
     if not classifier_pipeline:
         logger.error("Classifier pipeline not loaded. Cannot perform classification.")
         return ["general"]
@@ -84,50 +83,118 @@ def model_classify(text: str) -> List[str]:
         logger.error(f"Error during model classification: {e}", exc_info=True)
         return ["general"]
 
-# --- MCP Models ---
-class ModelContextRequest(BaseModel):
-    model_id: Optional[str] = None
-    model_version: Optional[str] = None
-    inputs: str
-    parameters: Optional[Dict[str, Any]] = None
-
-class ModelContextResponse(BaseModel):
-    model_id: str
-    model_version: str
-    outputs: Dict[str, Any]
-
-# --- MCP Predict Endpoint ---
-@app.post(
-    "/predict",
-    response_model=ModelContextResponse,
-    summary="MCP Predict: Zero-Shot Classification",
-    description="MCP protocol endpoint wrapping zero-shot classify"
-)
-async def predict(request: ModelContextRequest):
+# --- MCP Tools ---
+@mcp.tool()
+async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Classify text using zero-shot classification.
+    
+    Args:
+        inputs: The text to classify
+        parameters: Optional parameters (not used currently)
+        
+    Returns:
+        Dictionary containing classifications
+    """
     start_time = time.time()
-    text = request.inputs or ""
-    if not text:
-        classifications = ["general"]
-    else:
-        classifications = model_classify(text)
+    text = inputs or ""
+    classifications = model_classify(text)
     duration = time.time() - start_time
-    logger.info(f"MCP Predict: model={request.model_id or MODEL_NAME} classified in {duration:.4f}s")
-    return ModelContextResponse(
-        model_id=request.model_id or MODEL_NAME,
-        model_version=request.model_version or MODEL_NAME,
-        outputs={"classifications": classifications}
-    )
+    logger.info(f"MCP predict tool: classified in {duration:.4f}s")
+    return {"classifications": classifications}
 
-# --- Health Check ---
-@app.get("/health", summary="Health Check")
-async def health():
-    """Basic health check, indicates if model is loaded."""
+@mcp.tool()
+async def health_check() -> Dict[str, str]:
+    """Check the health of the classifier service."""
     model_status = "loaded" if classifier_pipeline else "failed_to_load"
-    return {"status": "ok", "service": "Zero-Shot Text Classifier MCP Server", "model_status": model_status}
+    return {
+        "status": "ok", 
+        "service": "ZeroShotClassifier", 
+        "model_status": model_status
+    }
 
 # --- Run (for development) ---
 if __name__ == "__main__":
+    from fastapi import FastAPI, Request, Response
     import uvicorn
+    
     port = int(os.environ.get("MCP_CLASSIFIER_PORT", 8001))
     logger.info(f"Starting Zero-Shot Text Classifier MCP Server on port {port}")
+    
+    # Create a regular FastAPI app
+    app = FastAPI(title="Zero-Shot Classifier MCP Server")
+    
+    @app.post("/mcp")
+    async def mcp_endpoint(request: Request) -> Response:
+        """MCP JSON-RPC endpoint that processes requests and forwards to appropriate tools"""
+        try:
+            data = await request.json()
+            # Check if this is a JSON-RPC request
+            if "jsonrpc" in data and "method" in data:
+                method = data["method"]
+                params = data.get("params", {})
+                request_id = data.get("id")
+                
+                # Call the appropriate tool
+                if method == "predict" and "inputs" in params:
+                    result = await predict(inputs=params["inputs"], parameters=params.get("parameters"))
+                    return Response(
+                        content=json.dumps({
+                            "jsonrpc": "2.0",
+                            "result": result,
+                            "id": request_id
+                        }),
+                        media_type="application/json"
+                    )
+                elif method == "health_check":
+                    result = await health_check()
+                    return Response(
+                        content=json.dumps({
+                            "jsonrpc": "2.0",
+                            "result": result,
+                            "id": request_id
+                        }),
+                        media_type="application/json"
+                    )
+                else:
+                    # Method not found
+                    return Response(
+                        content=json.dumps({
+                            "jsonrpc": "2.0",
+                            "error": {
+                                "code": -32601,
+                                "message": f"Method {method} not found"
+                            },
+                            "id": request_id
+                        }),
+                        media_type="application/json"
+                    )
+            else:
+                # Not a JSON-RPC request
+                return Response(
+                    content=json.dumps({
+                        "error": "Invalid JSON-RPC request"
+                    }),
+                    status_code=400,
+                    media_type="application/json"
+                )
+        except Exception as e:
+            logger.error(f"Error processing MCP request: {e}", exc_info=True)
+            return Response(
+                content=json.dumps({
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": -32603,
+                        "message": f"Internal error: {str(e)}"
+                    },
+                    "id": None
+                }),
+                media_type="application/json"
+            )
+    
+    # Add /health endpoint for basic monitoring
+    @app.get("/health")
+    async def health():
+        status = await health_check()
+        return status
+    
     uvicorn.run(app, host="0.0.0.0", port=port)
