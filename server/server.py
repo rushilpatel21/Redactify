@@ -70,6 +70,9 @@ CONFIG = {
     "classifier_timeout": int(os.environ.get("CLASSIFIER_TIMEOUT", 5)),
     "ner_agent_timeout": 180,  # Increase from 60 to 180 seconds
     "parallel_detector_timeout": 200,  # Increase overall timeout accordingly
+    "context_window": 40,  # Increased from 6 to 40
+    "entity_confidence_threshold": 0.1,  # Lower threshold to catch more potential entities
+    "enable_context_detection": True,  # Add flag to enable/disable context detection
 }
 
 BLOCKLIST_LIST = load_json_config('blocklist.json', [])
@@ -225,7 +228,7 @@ def has_context(text, span_start, span_end, context_words):
     matched_text = text[span_start:span_end]
     if matched_text in BLOCKLIST: return False
     if matched_text.startswith("Project") and len(matched_text.split()) <= 2: return False
-    context_size = CONFIG.get("context_window", 6)
+    context_size = CONFIG.get("context_window", 40)
     text_before = text[:span_start].split()[-context_size:] if span_start > 0 else []
     text_after = text[span_end:].split()[:context_size] if span_end < len(text) else []
     context_text = ' '.join(text_before + text_after).lower()
@@ -285,6 +288,64 @@ def get_regex_entities(text: str) -> list:
 
     return regex_entities
 
+def add_contextual_entities(text: str) -> list:
+    """Pre-process text to identify ambiguous entities based on context."""
+    contextual_entities = []
+    
+    # Common ambiguous company names (lowercase to handle case-insensitive matching)
+    ambiguous_companies = {
+        "apple": "ORGANIZATION",
+        "amazon": "ORGANIZATION",
+        "google": "ORGANIZATION",
+        "meta": "ORGANIZATION",
+        "microsoft": "ORGANIZATION",
+        "oracle": "ORGANIZATION", 
+        "shell": "ORGANIZATION",
+        "twitter": "ORGANIZATION",
+        "uber": "ORGANIZATION"
+    }
+    
+    # Context indicators for different entity types
+    context_indicators = {
+        "ORGANIZATION": [
+            r'\b(work|working|job|career|company|corporation|inc|firm)\b',
+            r'\b(tech|technology|product|products|device|phone|computer)\b',
+            r'\b(stock|share|market|investor|investment)\b',
+            r'\b(ceo|founder|employee|staff|team)\b'
+        ]
+    }
+    
+    # Process text for ambiguous companies
+    for company_name, entity_type in ambiguous_companies.items():
+        # Case insensitive search
+        pattern = rf'\b{re.escape(company_name)}\b'
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            start, end = match.span()
+            
+            # Check if company context exists nearby
+            context_window = 40  # Check 40 chars before and after
+            context_text = text[max(0, start-context_window):min(len(text), end+context_window)].lower()
+            
+            # Check for context indicators
+            is_context_match = False
+            for indicator in context_indicators.get(entity_type, []):
+                if re.search(indicator, context_text, re.IGNORECASE):
+                    is_context_match = True
+                    break
+                    
+            if is_context_match:
+                contextual_entities.append({
+                    'entity_group': entity_type,
+                    'start': start,
+                    'end': end,
+                    'score': 0.88,  # High confidence due to context match
+                    'detector': 'context_entity_detector'
+                })
+    
+    # Add more specialized entity detection here in the future
+    
+    return contextual_entities
+
 # --- Core Logic (Modified run_detectors) ---
 def run_detectors(text: str) -> tuple[list, list, list]:
     """
@@ -293,6 +354,12 @@ def run_detectors(text: str) -> tuple[list, list, list]:
     """
     all_entities = []
     start_time = time.time()
+
+    # Add context-aware entity detection
+    contextual_entities = add_contextual_entities(text)
+    if contextual_entities:
+        all_entities.extend(contextual_entities)
+        logger.info(f"Context entity detector found {len(contextual_entities)} entities")
 
     classifications = get_text_classification(text)
     logger.info(f"Text classified as: {classifications}. Determining detectors to run...")
@@ -316,6 +383,7 @@ def run_detectors(text: str) -> tuple[list, list, list]:
 
         futures.append(executor.submit(get_presidio_entities, text))
         futures.append(executor.submit(get_regex_entities, text))
+        futures.append(executor.submit(add_contextual_entities, text))
 
         for func, url in unique_agent_calls:
             logger.debug(f"Submitting call to agent: {url}")
@@ -329,7 +397,7 @@ def run_detectors(text: str) -> tuple[list, list, list]:
                 all_entities.extend(result)
 
         # Add fallback name detection for common names that might be missed
-        name_patterns = [r'\b([A-Z][a-z]+)\b']  # Simple pattern for capitalized words
+        name_patterns = [r'\b([A-Z][a-z]+)\b', r'\b([A-Z][A-Z]+)\b']  # Added all caps pattern
         for pattern in name_patterns:
             for match in re.finditer(pattern, text):
                 name = match.group(1)
@@ -344,6 +412,19 @@ def run_detectors(text: str) -> tuple[list, list, list]:
                     'word': name,
                     'detector': 'fallback_name_detector'
                 })
+
+        # Consider adding more specific name detection:
+        potential_names = re.findall(r'(?:Mr\.|Ms\.|Mrs\.|Dr\.) ([A-Z][a-zA-Z\-]+)', text)
+        for name in potential_names:
+            if name.lower() in COMMON_NAME_WORDS:
+                continue
+            all_entities.append({
+                'entity_group': 'PERSON',
+                'start': text.find(name),
+                'end': text.find(name) + len(name),
+                'score': 0.92,  # High confidence for names with titles
+                'detector': 'title_name_detector'
+            })
 
     duration = time.time() - start_time
     logger.info(f"All detection tasks completed in {duration:.2f}s. Total potential entities: {len(all_entities)}")
@@ -476,7 +557,8 @@ def verify_entity(entity_type, text, confidence_score):
     if entity_type == "PERSON" and len(text.split()) == 1 and text in COMMON_NAME_WORDS: return False
     type_confidence_thresholds = {
         "PASSWORD": 0.75, "API_KEY": 0.75, "CREDENTIAL": 0.75, "FINANCIAL": 0.7,
-        "ORGANIZATION": 0.65, "DEVICE": 0.75, "MEDICAL": 0.7, "PERSON": 0.68
+        "ORGANIZATION": 0.60,  # Lowered from 0.65 to catch more organizations
+        "DEVICE": 0.75, "MEDICAL": 0.7, "PERSON": 0.68
     }
     min_confidence = type_confidence_thresholds.get(entity_type, CONFIG.get("confidence_threshold", 0.68))
     if confidence_score < min_confidence: return False
@@ -533,8 +615,9 @@ def select_best_entity(entities: list, text: str) -> dict:
         if not verify_entity(best['normalized_type'], entity_text, best['score']): return None
         return best
     detector_priority = {
+        'context_entity_detector': 3.2,  # New highest priority detector
         'regex_internal': 3, 'presidio_internal': 2.8, 'a2a_ner_pii_specialized': 2.5,
-        'a2a_ner_medical_model1': 2.2, 'a2a_ner_medical_model2': 2.1,
+        'a2a_ner_medical': 2.2,  # Updated from model1
         'a2a_ner_technical': 1.8, 'a2a_ner_general': 1.5
     }
     type_priority = {
