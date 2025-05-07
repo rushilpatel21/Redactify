@@ -20,56 +20,38 @@ logger = logging.getLogger("A2AMedicalNER")
 logger.info(f"Logging initialized at {log_level} level")
 
 # --- Model Configuration ---
-MODEL_1_NAME = os.environ.get("A2A_MEDICAL_MODEL1", "obi/deid_roberta_i2b2")
-MODEL_2_NAME = os.environ.get("A2A_MEDICAL_MODEL2", "theekshana/deid-roberta-i2b2-NER-medical-reports")
+MODEL_NAME = os.environ.get("A2A_MEDICAL_MODEL", "obi/deid_roberta_i2b2")
 AGENT_ID = "a2a_ner_medical"
 
-# --- Load models at module initialization ---
-logger.info(f"[{AGENT_ID}] Starting models load")
-pipelines = {}
-models_loaded = False
+# --- Load model at module initialization ---
+logger.info(f"[{AGENT_ID}] Starting model load")
+ner_pipeline = None
+model_loaded = False
 
 try:
-    logger.info(f"[{AGENT_ID}] Step 1: Loading model 1: {MODEL_1_NAME}")
+    logger.info(f"[{AGENT_ID}] Setting up model pipeline: {MODEL_NAME}")
     start_time = time.time()
-    pipelines['model1'] = pipeline("ner", model=MODEL_1_NAME, aggregation_strategy="simple")
+    ner_pipeline = pipeline("ner", model=MODEL_NAME, aggregation_strategy="simple")
     load_time = time.time() - start_time
-    logger.info(f"[{AGENT_ID}] Model 1 loaded successfully in {load_time:.2f}s")
+    logger.info(f"[{AGENT_ID}] Model loaded successfully in {load_time:.2f}s")
+    model_loaded = True
 except Exception as e:
-    logger.error(f"[{AGENT_ID}] CRITICAL ERROR: Failed to load model {MODEL_1_NAME}: {e}", exc_info=True)
-    logger.error(f"[{AGENT_ID}] Model 1 loading stack trace", stack_info=True)
-
-try:
-    logger.info(f"[{AGENT_ID}] Step 2: Loading model 2: {MODEL_2_NAME}")
-    start_time = time.time()
-    pipelines['model2'] = pipeline(
-        "ner",
-        model=MODEL_2_NAME,
-        aggregation_strategy="simple",
-        model_kwargs={"ignore_mismatched_sizes": True}
-    )
-    load_time = time.time() - start_time
-    logger.info(f"[{AGENT_ID}] Model 2 loaded successfully in {load_time:.2f}s (with mismatched sizes ignored)")
-except Exception as e:
-    logger.error(f"[{AGENT_ID}] CRITICAL ERROR: Failed to load model {MODEL_2_NAME}: {e}", exc_info=True)
-    logger.error(f"[{AGENT_ID}] Model 2 loading stack trace", stack_info=True)
-
-models_loaded = len(pipelines) > 0
-logger.info(f"[{AGENT_ID}] Models loading complete. Loaded {len(pipelines)}/2 models. Ready: {models_loaded}")
+    logger.error(f"[{AGENT_ID}] CRITICAL ERROR: Failed to load model {MODEL_NAME}: {e}", exc_info=True)
+    logger.error(f"[{AGENT_ID}] Model loading stack trace", stack_info=True)
 
 # --- MCP Server Setup ---
 logger.info(f"[{AGENT_ID}] Initializing FastMCP server")
 mcp = FastMCP(
     name="MedicalNERAgent", 
     version="1.0.0",
-    description="Medical Named Entity Recognition with dual models"
+    description="Medical Named Entity Recognition agent"
 )
 logger.info(f"[{AGENT_ID}] FastMCP initialized")
 
 # --- MCP Tools ---
 @mcp.tool()
 async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Detect medical named entities using dual-model approach."""
+    """Detect medical named entities in text."""
     request_id = str(uuid.uuid4())[:8]
     logger.info(f"[{AGENT_ID}][{request_id}] ENTRY: predict function called")
     
@@ -78,8 +60,8 @@ async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> D
         logger.warning(f"[{AGENT_ID}][{request_id}] Empty text provided, returning empty result")
         return {"entities": []}
     
-    if not pipelines:
-        logger.error(f"[{AGENT_ID}][{request_id}] No NER pipelines loaded. Cannot perform entity detection.")
+    if not ner_pipeline:
+        logger.error(f"[{AGENT_ID}][{request_id}] NER pipeline not loaded. Cannot perform entity detection.")
         return {"entities": []}
 
     logger.info(f"[{AGENT_ID}][{request_id}] Processing text of length {len(text)}")
@@ -87,47 +69,40 @@ async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> D
     
     all_entities = []
     try:
-        # Step 1: Detect with all models
-        logger.info(f"[{AGENT_ID}][{request_id}] Step 1: Starting entity detection with {len(pipelines)} model(s)")
+        # Step 1: Entity detection
+        logger.info(f"[{AGENT_ID}][{request_id}] Step 1: Starting entity detection")
         start_time = time.time()
-        
-        # Run each model in sequence
-        for model_name, ner_pipe in pipelines.items():
-            model_start_time = time.time()
-            logger.info(f"[{AGENT_ID}][{request_id}] Running {model_name}")
-            try:
-                results = ner_pipe(text)
-                model_duration = time.time() - model_start_time
-                logger.info(f"[{AGENT_ID}][{request_id}] {model_name} completed in {model_duration:.2f}s, found {len(results)} entities")
-                
-                # Process and normalize this model's results
-                for item in results:
-                    # Type conversion and validation
-                    if 'score' in item and isinstance(item['score'], (int, float, np.floating)):
-                        item['score'] = float(item['score'])
-                    if 'start' in item: 
-                        item['start'] = int(item['start'])
-                    if 'end' in item:
-                        item['end'] = int(item['end'])
-                    
-                    # Add source model and detector information
-                    item['detector'] = f"{AGENT_ID}_{model_name}"
-                    
-                    # Logging the entity type and text
-                    if 'entity_group' in item and 'start' in item and 'end' in item:
-                        entity_text = text[item['start']:item['end']] if 0 <= item['start'] < len(text) and item['end'] <= len(text) else "INVALID_SPAN"
-                        logger.debug(f"[{AGENT_ID}][{request_id}] {model_name} entity: {item.get('entity_group', 'UNKNOWN')} '{entity_text}' ({item['start']}:{item['end']})")
-                    
-                    all_entities.append(item)
-                    
-            except Exception as model_error:
-                logger.error(f"[{AGENT_ID}][{request_id}] Error with {model_name}: {model_error}", exc_info=True)
-        
+        raw_results = ner_pipeline(text)
         detection_time = time.time() - start_time
-        logger.info(f"[{AGENT_ID}][{request_id}] Step 2: Detection completed in {detection_time:.2f}s across all models")
+        logger.info(f"[{AGENT_ID}][{request_id}] Step 2: Detection completed in {detection_time:.2f}s")
         
-        # Step 3: Process and merge results
-        logger.info(f"[{AGENT_ID}][{request_id}] Step 3: Consolidating {len(all_entities)} total entities")
+        # Step 2: Process results
+        logger.info(f"[{AGENT_ID}][{request_id}] Step 3: Processing {len(raw_results)} entities")
+        
+        for i, item in enumerate(raw_results):
+            logger.debug(f"[{AGENT_ID}][{request_id}] Processing entity {i+1}/{len(raw_results)}")
+            
+            # Type conversion and validation
+            if 'score' in item and isinstance(item['score'], (int, float, np.floating)):
+                item['score'] = float(item['score'])
+                logger.debug(f"[{AGENT_ID}][{request_id}] Entity {i+1} score: {item['score']:.4f}")
+            
+            if 'start' in item: 
+                item['start'] = int(item['start'])
+            if 'end' in item:
+                item['end'] = int(item['end'])
+                
+            # Logging the entity type and text
+            if 'entity_group' in item and 'start' in item and 'end' in item:
+                entity_text = text[item['start']:item['end']] if 0 <= item['start'] < len(text) and item['end'] <= len(text) else "INVALID_SPAN"
+                logger.debug(f"[{AGENT_ID}][{request_id}] Entity {i+1}: {item.get('entity_group', 'UNKNOWN')} '{entity_text}' ({item['start']}:{item['end']})")
+            
+            # Add detector information
+            item['detector'] = AGENT_ID
+            all_entities.append(item)
+        
+        total_time = time.time() - start_time
+        logger.info(f"[{AGENT_ID}][{request_id}] Step 4: Processing completed, returning {len(all_entities)} entities in {total_time:.2f}s")
         
         # Group entities by type for better logging
         entity_types = {}
@@ -137,14 +112,12 @@ async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> D
                 entity_types[entity_type] = 0
             entity_types[entity_type] += 1
         
-        total_time = time.time() - start_time
         logger.info(f"[{AGENT_ID}][{request_id}] Entity types found: {entity_types}")
-        logger.info(f"[{AGENT_ID}][{request_id}] Step 4: Processing completed in {total_time:.2f}s")
         logger.info(f"[{AGENT_ID}][{request_id}] EXIT: predict function completed successfully")
         
         return {"entities": all_entities}
     except Exception as e:
-        logger.error(f"[{AGENT_ID}][{request_id}] Error during NER prediction: {e}", exc_info=True)
+        logger.error(f"[{AGENT_ID}][{request_id}] Error during NER detection: {e}", exc_info=True)
         logger.error(f"[{AGENT_ID}][{request_id}] Stack trace", stack_info=True)
         logger.info(f"[{AGENT_ID}][{request_id}] EXIT: predict function failed")
         return {"entities": []}
@@ -156,11 +129,10 @@ async def health_check() -> Dict[str, Any]:
     logger.info(f"[{AGENT_ID}][{request_id}] ENTRY: health_check function called")
     
     status = {
-        "status": "ok" if models_loaded else "error",
+        "status": "ok" if model_loaded else "error",
         "agent_id": AGENT_ID,
-        "models_loaded_count": len(pipelines),
-        "model_names": [MODEL_1_NAME, MODEL_2_NAME],
-        "loaded_models": list(pipelines.keys()),
+        "model_loaded": model_loaded,
+        "model_name": MODEL_NAME,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
     }
     
