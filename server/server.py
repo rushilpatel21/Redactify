@@ -15,7 +15,7 @@ from presidio_anonymizer import AnonymizerEngine
 from presidio_anonymizer.entities import OperatorConfig
 import requests
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Dict
 
 # --- Load Environment Variables ---
 load_dotenv()
@@ -68,7 +68,8 @@ CONFIG = {
     "a2a_technical_url": os.environ.get("A2A_TECHNICAL_URL", "http://localhost:8004"),
     "a2a_pii_specialized_url": os.environ.get("A2A_PII_SPECIALIZED_URL", "http://localhost:8005"),
     "classifier_timeout": int(os.environ.get("CLASSIFIER_TIMEOUT", 5)),
-    "ner_agent_timeout": int(os.environ.get("NER_AGENT_TIMEOUT", 60)),
+    "ner_agent_timeout": 180,  # Increase from 60 to 180 seconds
+    "parallel_detector_timeout": 200,  # Increase overall timeout accordingly
 }
 
 BLOCKLIST_LIST = load_json_config('blocklist.json', [])
@@ -167,7 +168,7 @@ def get_text_classification(text: str) -> List[str]:
 
 def invoke_a2a_agent(agent_url: str, text: str) -> list:
     """Calls a specific A2A NER Agent using MCP JSON-RPC."""
-    url = agent_url + "/mcp"  # Changed from /predict to /mcp
+    url = agent_url + "/mcp"
     try:
         # JSON-RPC 2.0 format
         payload = {
@@ -176,7 +177,7 @@ def invoke_a2a_agent(agent_url: str, text: str) -> list:
             "params": {
                 "inputs": text
             },
-            "id": 1  # Request identifier
+            "id": 1
         }
         
         response = requests.post(url, json=payload, timeout=CONFIG["ner_agent_timeout"])
@@ -189,6 +190,8 @@ def invoke_a2a_agent(agent_url: str, text: str) -> list:
             return []
             
         entities = result.get("result", {}).get("entities", [])
+        # Log what entities were found
+        logger.debug(f"Agent {agent_url} returned {len(entities)} entities: {[e.get('entity_group', 'unknown') for e in entities]}")
         return entities
     except Exception as e:
         logger.error(f"Error calling agent {agent_url}: {e}", exc_info=True)
@@ -318,13 +321,29 @@ def run_detectors(text: str) -> tuple[list, list, list]:
             logger.debug(f"Submitting call to agent: {url}")
             futures.append(executor.submit(func, url, text))
 
-        for future in as_completed(futures):
-            try:
-                entities = future.result()
-                if entities:
-                    all_entities.extend(entities)
-            except Exception as e:
-                logger.error(f"Error collecting detector results: {e}", exc_info=True)
+        results = [future.result() for future in as_completed(futures)]
+
+        # Get regular agents' results
+        for result in results:
+            if isinstance(result, list):
+                all_entities.extend(result)
+
+        # Add fallback name detection for common names that might be missed
+        name_patterns = [r'\b([A-Z][a-z]+)\b']  # Simple pattern for capitalized words
+        for pattern in name_patterns:
+            for match in re.finditer(pattern, text):
+                name = match.group(1)
+                # Skip common non-name words
+                if name.lower() in ['the', 'a', 'an', 'this', 'that', 'these', 'those', 'is', 'are']:
+                    continue
+                all_entities.append({
+                    'entity_group': 'PERSON',
+                    'start': match.start(1),
+                    'end': match.end(1),
+                    'score': 0.85,
+                    'word': name,
+                    'detector': 'fallback_name_detector'
+                })
 
     duration = time.time() - start_time
     logger.info(f"All detection tasks completed in {duration:.2f}s. Total potential entities: {len(all_entities)}")
@@ -535,46 +554,70 @@ def select_best_entity(entities: list, text: str) -> dict:
         if composite_score > best_score: best_score = composite_score; best_entity = entity
     return best_entity
 
-def merge_overlapping_entities(entities: list, text: str) -> list:
-    if not entities: return []
-    for entity in entities:
-        entity['score'] = score_entity(entity, text)
-        entity['normalized_type'] = normalize_entity(entity)
-    threshold = CONFIG.get("confidence_threshold", 0.68)
-    entities = [e for e in entities if e.get('score', 0) >= threshold and e['normalized_type'] is not None]
-    if not entities: return []
-    entities.sort(key=lambda x: (x['start'], -x['end']))
-    result = []; current_group = []
-    if entities: current_group.append(entities[0])
-    for entity in entities[1:]:
-        overlaps = False
-        last_best_entity = result[-1] if result else None
-        if last_best_entity and entity['start'] < last_best_entity['end']:
-             best_of_group = select_best_entity(current_group, text)
-             if best_of_group: result.append(best_of_group)
-             current_group = [entity]
-             continue
-
-        for current in current_group:
-            if entity['start'] < current['end'] and current['start'] < entity['end']:
-                overlaps = True; break
-
-        if overlaps: current_group.append(entity)
+def merge_overlapping_entities(entities: List[Dict], text: str) -> List[Dict]:
+    """Merge overlapping entity spans from different detectors."""
+    if not entities:
+        return []
+    
+    # Sort by start position, then by longest span, then by highest score
+    sorted_entities = sorted(entities, key=lambda x: (x['start'], -len(text[x['start']:x['end']]), -x.get('score', 0)))
+    
+    # Debug entity information
+    for i, entity in enumerate(sorted_entities):
+        logger.debug(f"Entity {i}: {entity.get('entity_group', 'UNKNOWN')} ({entity['start']}:{entity['end']}) "
+                    f"'{text[entity['start']:entity['end']]}' "
+                    f"score: {entity.get('score', 0):.4f}, detector: {entity.get('detector', 'unknown')}")
+    
+    # Remove entities below confidence threshold
+    confidence_threshold = CONFIG.get("entity_confidence_threshold", 0.1)
+    filtered_entities = []
+    for entity in sorted_entities:
+        if entity.get('score', 1.0) >= confidence_threshold:
+            filtered_entities.append(entity)
         else:
-            best_of_group = select_best_entity(current_group, text)
-            if best_of_group: result.append(best_of_group)
-            current_group = [entity]
-
-    if current_group:
-        best_entity = select_best_entity(current_group, text)
-        if best_entity: result.append(best_entity)
-
-    final_entities = []
-    for entity in result:
-        entity_text = text[entity['start']:entity['end']]
-        entity_type = entity['normalized_type']
-        if verify_entity(entity_type, entity_text, entity['score']): final_entities.append(entity)
-    return final_entities
+            logger.debug(f"Filtered out low-confidence entity: {entity.get('entity_group', 'UNKNOWN')} "
+                        f"'{text[entity['start']:entity['end']]}' (score: {entity.get('score', 0):.4f})")
+    
+    # Process filtered entities to merge overlapping spans
+    result = []
+    i = 0
+    while i < len(filtered_entities):
+        current = filtered_entities[i]
+        current_start, current_end = current['start'], current['end']
+        
+        # Find all entities that overlap with current one
+        overlapping = []
+        for j in range(len(filtered_entities)):
+            if i != j:
+                other = filtered_entities[j]
+                if (current_start <= other['end'] and other['start'] <= current_end):
+                    overlapping.append(other)
+        
+        # If there are overlapping entities, select the best one
+        if overlapping:
+            # Add normalized types to current and overlapping entities
+            current['normalized_type'] = normalize_entity(current)
+            for o in overlapping:
+                o['normalized_type'] = normalize_entity(o)
+            
+            # Include current in the selection pool
+            candidates = [current] + overlapping
+            best = select_best_entity(candidates, text)
+            
+            if best:
+                result.append(best)
+                
+            # Skip all the entities that overlapped with this one
+            skip_indices = set([filtered_entities.index(o) for o in overlapping])
+            i = max(skip_indices) + 1 if skip_indices else i + 1
+        else:
+            # No overlap, just add normalized type and append
+            current['normalized_type'] = normalize_entity(current)
+            result.append(current)
+            i += 1
+    
+    logger.info(f"Original entities: {len(entities)}, After filtering: {len(filtered_entities)}, After merging: {len(result)}")
+    return result
 
 # --- Anonymization Function ---
 def anonymize_text(text: str, pii_options: dict = None, full_redaction: bool = True) -> tuple[str, list, list]:
