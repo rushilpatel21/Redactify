@@ -6,7 +6,7 @@ import json
 from mcp.server.fastmcp import FastMCP
 from typing import List, Any, Dict, Optional
 from dotenv import load_dotenv
-import openai
+from openai import AsyncOpenAI
 import asyncio
 
 # --- Basic Setup ---
@@ -17,11 +17,12 @@ logger = logging.getLogger("MCPLLMClassifier")
 # --- LLM Configuration ---
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("LLM_MODEL_NAME", "gpt-4-turbo")
-DOCUMENT_CATEGORIES = ["medical", "technical", "general", "legal", "financial"]
+DOCUMENT_CATEGORIES = ["medical", "technical", "general"]
 
 # Initialize OpenAI client
+client = None
 try:
-    openai.api_key = OPENAI_API_KEY
+    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
     logger.info(f"OpenAI client configured with model {OPENAI_MODEL}")
 except Exception as e:
     logger.error(f"Failed to initialize OpenAI client: {e}", exc_info=True)
@@ -36,8 +37,8 @@ mcp = FastMCP(
 # --- Classification Logic ---
 async def llm_classify(text: str) -> List[str]:
     """Classifies text using LLM reasoning, returning a list of relevant categories."""
-    if not OPENAI_API_KEY:
-        logger.error("OpenAI API key not set. Cannot perform LLM classification.")
+    if not OPENAI_API_KEY or not client:
+        logger.error("OpenAI API key not set or client initialization failed. Cannot perform LLM classification.")
         return ["general"]
 
     if not text:
@@ -60,7 +61,8 @@ async def llm_classify(text: str) -> List[str]:
         {truncated_text}
         """
 
-        response = await openai.ChatCompletion.acreate(
+        # Using the new OpenAI client API (v1.0+)
+        response = await client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "system", "content": prompt}],
             temperature=0.1,

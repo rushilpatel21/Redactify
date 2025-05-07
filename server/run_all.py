@@ -8,7 +8,7 @@ from dotenv import load_dotenv  # Import dotenv
 
 # --- Configuration ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SERVER_DIR = os.path.join(BASE_DIR, "server")
+SERVER_DIR = os.path.join(BASE_DIR)
 
 # Load environment variables from .env file located in the server directory
 dotenv_path = os.path.join(SERVER_DIR, '.env')
@@ -21,7 +21,18 @@ SERVICES = [
     ("a2a_ner_medical", "medical_ner_agent.py", "Medical NER", "A2A_MEDICAL_URL", 8003),
     ("a2a_ner_technical", "technical_ner_agent.py", "Technical NER", "A2A_TECHNICAL_URL", 8004),
     ("a2a_ner_pii_specialized", "pii_specialized_ner_agent.py", "PII Specialized NER", "A2A_PII_SPECIALIZED_URL", 8005),
+    
 ]
+
+# Add environment variable based conditional loading
+ENABLE_LEGAL = os.environ.get("ENABLE_LEGAL_NER", "").lower() in ["true", "1", "yes", "y", ""]
+ENABLE_FINANCIAL = os.environ.get("ENABLE_FINANCIAL_NER", "").lower() in ["true", "1", "yes", "y", ""]
+
+# Filter services based on environment settings
+if not ENABLE_LEGAL:
+    SERVICES = [s for s in SERVICES if s[2] != "Legal NER"]
+if not ENABLE_FINANCIAL:
+    SERVICES = [s for s in SERVICES if s[2] != "Financial NER"]
 
 DISPATCHER_SCRIPT = "server.py"
 DISPATCHER_TITLE = "Dispatcher"

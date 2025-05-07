@@ -25,7 +25,17 @@ Open separate terminal instances (like Command Prompt or PowerShell) in the `Red
     python server/a2a_ner_pii_specialized/pii_specialized_ner_agent.py
     ```
 
-6.  **Run Dispatcher (Port 8000):**  
+6.  **Run Legal NER Agent (Port 8006):**  
+    ```bash
+    python server/a2a_ner_legal/legal_ner_agent.py
+    ```
+
+7.  **Run Financial NER Agent (Port 8007):**  
+    ```bash
+    python server/a2a_ner_financial/financial_ner_agent.py
+    ```
+
+8.  **Run Dispatcher (Port 8000):**  
     ```bash
     python server/server.py
     ```
@@ -38,6 +48,8 @@ start "General NER" python server/a2a_ner_general/general_ner_agent.py
 start "Medical NER" python server/a2a_ner_medical/medical_ner_agent.py
 start "Technical NER" python server/a2a_ner_technical/technical_ner_agent.py
 start "PII Specialized NER" python server/a2a_ner_pii_specialized/pii_specialized_ner_agent.py
+start "Legal NER" python server/a2a_ner_legal/legal_ner_agent.py
+start "Financial NER" python server/a2a_ner_financial/financial_ner_agent.py
 start "Dispatcher Server" python server/server.py
 ```
 
