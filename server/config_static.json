@@ -1,0 +1,5 @@
+{
+    "context_window": 6,
+    "partial_mask_char": "*",
+    "preserve_formatting": true
+}

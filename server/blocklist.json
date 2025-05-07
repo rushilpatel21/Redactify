@@ -1,0 +1,13 @@
+[
+    "Submitted", "Customer", "Issue Description", "Order Number", "Account",
+    "Confirmation", "Attempts", "Reference", "Description", "Screenshots",
+    "Communication", "Number", "Information", "Details", "Subject", "Team",
+    "Project", "Request", "Update", "From", "Hi", "Hello", "Dear", "Regards",
+    "Best", "Thanks", "Thank you", "Report", "Board", "Contract", "Company",
+    "Office", "Employee", "Manager", "Director", "VP", "CEO", "CTO", "CFO",
+    "Approved by", "Case Priority", "High", "Medium", "Low", "Internal",
+    "External", "Technical", "Model", "Device", "CONFIDENTIAL", "Support",
+    "Ticket", "Date", "Phone", "Email", "Contact", "BILLING", "INFORMATION",
+    "Expiration", "Security", "Code", "CVV", "DEVICE", "DETAILS", "NOTES",
+    "Alternate", "HISTORY", "STATUS", "EMPLOYEE", "Priority"
+]

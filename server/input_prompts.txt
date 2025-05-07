@@ -1,0 +1,14 @@
+// this will invoke General
+{
+  "text": "Meeting Summary: Discussed Q3 marketing strategy with Jane Doe (jane.d@example.com, phone 555-123-4567). Project 'Phoenix' kickoff is next week. Address for delivery: 123 Main St, Anytown, USA. Please confirm receipt."
+}
+
+// this will invoke Medical
+{
+  "text": "Patient consult notes for John Smith, DOB 01/15/1975, MRN: P987654321. Diagnosis: Hypertension. Physician: Dr. Evelyn Reed. Patient reported side effects from Lisinopril. Vitals stable. Follow up in 3 months at the Cardiology Clinic, room 4B."
+}
+
+// this will invoke both medical and technical
+{
+  "text": "Integration issue: The HL7 message feed from the radiology department's PACS server (IP 192.168.5.50) to the main EHR system is failing. Error code 500 logged in the interface engine software. This impacts patient record updates, e.g., Patient ID 112233. Contact IT support engineer Mark Johnson (mark.j@hospital.org) or vendor support."
+}

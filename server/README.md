@@ -8,17 +8,21 @@ The API supports two redaction modes:
 - **Full Redaction:** Every detected PII is replaced with a hash-based pseudonym (e.g., `[PERSON-320b8e]`).
 - **Partial Redaction:** For certain types (such as emails and URLs), a custom partial mask is applied (e.g., preserving the first 2 and last 2 or 3 characters) while other tokens are partially masked using a general rule.
 
-The API leverages three different methods for PII detection:
-- **Presidio Analyzer:** Detects a wide range of standard PII.
-- **Hugging Face NER Pipeline:** Uses a fine-tuned BERT model (dbmdz/bert-large-cased-finetuned-conll03-english) to extract entities.
-- **Regex Patterns:** Additional patterns are applied to capture formats that may be missed by the above methods (e.g., various phone number formats, dates, etc.).
+The API leverages a distributed architecture of specialized models that communicate via MCP (Model Context Protocol):
+- **Text Classification:** Zero-shot classifier for determining text categories (medical, technical, general)
+- **General Entity Detection:** BERT-based model for common named entities
+- **Medical Entity Detection:** Specialized model for identifying medical/health PII
+- **Technical Entity Detection:** Specialized model for technical data like credentials, API keys
+- **PII Specialized Detection:** Targeted model for personally identifiable information
+- **Regex Patterns:** Additional patterns to capture formats that may be missed by ML models
 
 ## Features
 
-- **Multi-Method Detection:** Combines machine learning (via Hugging Face) with rule-based (regex) and Presidio-based detection.
-- **Flexible Redaction:** Choose between full redaction (using hash-based pseudonyms) and partial redaction (custom masking for emails and URLs, general masking for others).
-- **Configurable Options:** The detection confidence threshold, placeholders, and enabled PII types can be configured via environment variables and/or the request payload.
-- **Performance Optimizations:** Detection methods run concurrently using a thread pool to improve processing speed.
+- **MCP-based Microservices:** Distributed architecture with specialized models communicating through standardized JSON-RPC
+- **Multi-Method Detection:** Combines multiple specialized ML models with rule-based detection
+- **Flexible Redaction:** Choose between full redaction (using hash-based pseudonyms) and partial redaction (custom masking for emails and URLs, general masking for others)
+- **Configurable Options:** The detection confidence threshold, placeholders, and enabled PII types can be configured via environment variables and/or the request payload
+- **Performance Optimizations:** Detection methods run concurrently using a thread pool to improve processing speed
 
 ## Installation and Setup
 
@@ -114,7 +118,6 @@ Send a POST request to the `/anonymize` endpoint with a JSON payload containing:
     "anonymized_text": "This agreement, effective as of [DATE_TIME-cad1e6] or [DATE_TIME-0c0a3a], is made between [ORGANIZATION-0458a5] (contact email: [EMAIL_ADDRESS-8eb1b5], phone: [PHONE_NUMBER-ca71de]) and the Client, Mr. [PERSON-611732] (SSN: [SSN-1e8748], email: [EMAIL_ADDRESS-75fb49] or [EMAIL_ADDRESS-8cb50b] or my [ORGANIZATION-a75ee3] mail [EMAIL_ADDRESS-2c1b67], phone: [UK_NHS-607d40] and [PHONE_NUMBER-d32fe4]). My roll number is [ROLL_NUMBER-9c5d7c]. Visit [URL-b1cc0b] and [URL-b01233] for more info."
 }
 ```
-
 
 ## Configuration
 
