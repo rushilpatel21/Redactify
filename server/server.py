@@ -77,6 +77,7 @@ CONFIG = {
     "context_window": 40,
     "entity_confidence_threshold": 0.1,
     "enable_context_detection": True,
+    "enable_fallback_name_detector": True,
 }
 
 BLOCKLIST_LIST = load_json_config('blocklist.json', [])
@@ -404,25 +405,55 @@ def run_detectors(text: str) -> tuple[list, list, list]:
             if isinstance(result, list):
                 all_entities.extend(result)
 
-        # Add fallback name detection for common names that might be missed
-        name_patterns = [r'\b([A-Z][a-z]+)\b', r'\b([A-Z][A-Z]+)\b']  # Added all caps pattern
-        for pattern in name_patterns:
-            for match in re.finditer(pattern, text):
-                name = match.group(1)
-                # Skip common non-name words
-                if name.lower() in ['the', 'a', 'an', 'this', 'that', 'these', 'those', 'is', 'are']:
-                    continue
-                all_entities.append({
-                    'entity_group': 'PERSON',
-                    'start': match.start(1),
-                    'end': match.end(1),
-                    'score': 0.85,
-                    'word': name,
-                    'detector': 'fallback_name_detector'
-                })
+        # Add fallback name detection, but with improved filtering
+        # Check if presidio already found person entities first
+        presidio_found_persons = any(
+            e.get('entity_group', '').upper() == 'PERSON' and e.get('detector') == 'presidio_internal'
+            for e in all_entities
+        )
+        
+        # Only run fallback detection if presidio didn't find persons and it's enabled
+        if not presidio_found_persons and CONFIG.get("enable_fallback_name_detector", True):
+            # Extended list of common words that shouldn't be detected as names
+            common_non_names = [
+                'the', 'a', 'an', 'this', 'that', 'these', 'those', 'is', 'are', 'my', 'your', 'his', 'her',
+                'our', 'their', 'its', 'if', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'as', 'of', 'from',
+                'about', 'ssn', 'id', 'cc', 'cv', 'cvv', 'pin', 'no', 'yes', 'ok', 'new', 'old', 'first', 'last'
+            ]
+            
+            # Find potential names using capital letter pattern, but with better filtering
+            name_patterns = [r'\b([A-Z][a-z]{2,})\b']  # Minimum 3 chars, first letter capital, rest lowercase
+            for pattern in name_patterns:
+                for match in re.finditer(pattern, text):
+                    name = match.group(1)
+                    
+                    # Skip if it's a common non-name word
+                    if name.lower() in common_non_names:
+                        continue
+                        
+                    # Skip if it appears at sentence beginning (likely not a name)
+                    pre_context = text[max(0, match.start(1)-20):match.start(1)].strip()
+                    if pre_context == "" or pre_context.endswith(('.', '!', '?', '\n', '\r')):
+                        # This might be start of sentence, check if it's a common sentence starter
+                        if name in ["The", "This", "That", "These", "Those", "My", "Your", "Our", "Their", "It"]:
+                            continue
+                    
+                    # Skip if it's in the common name words list (already loaded globally)
+                    if name.lower() in COMMON_NAME_WORDS:
+                        continue
+                        
+                    # Add with a lower confidence score to avoid overriding better matches
+                    all_entities.append({
+                        'entity_group': 'PERSON',
+                        'start': match.start(1),
+                        'end': match.end(1),
+                        'score': 0.65,  # Lower score so it doesn't override better matches
+                        'word': name,
+                        'detector': 'fallback_name_detector'
+                    })
 
-        # Consider adding more specific name detection:
-        potential_names = re.findall(r'(?:Mr\.|Ms\.|Mrs\.|Dr\.) ([A-Z][a-zA-Z\-]+)', text)
+        # Detection for names with titles is more reliable, so keep it
+        potential_names = re.findall(r'(?:Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.) ([A-Z][a-zA-Z\-]{2,})', text)
         for name in potential_names:
             if name.lower() in COMMON_NAME_WORDS:
                 continue
@@ -437,6 +468,62 @@ def run_detectors(text: str) -> tuple[list, list, list]:
     duration = time.time() - start_time
     logger.info(f"All detection tasks completed in {duration:.2f}s. Total potential entities: {len(all_entities)}")
     return all_entities, classifications, invoked_agent_urls
+
+# --- Additional Detector Function for Internal-Only Detection ---
+def run_internal_detectors(text: str) -> list:
+    """
+    Runs only the internal detectors (Presidio, Regex, and Context-aware).
+    Does not call any external A2A agents.
+    Returns a list of detected entities.
+    """
+    all_entities = []
+    start_time = time.time()
+
+    # Get entities from internal detectors
+    presidio_entities = get_presidio_entities(text)
+    regex_entities = get_regex_entities(text)
+    contextual_entities = add_contextual_entities(text)
+    
+    # Combine all internal results
+    all_entities.extend(presidio_entities)
+    all_entities.extend(regex_entities)
+    all_entities.extend(contextual_entities)
+    
+    # Add fallback name detection (same as in run_detectors)
+    name_patterns = [r'\b([A-Z][a-z]{2,})\b']
+    for pattern in name_patterns:
+        for match in re.finditer(pattern, text):
+            name = match.group(1)
+            # Skip common non-name words
+            if name.lower() in ['the', 'a', 'an', 'this', 'that', 'these', 'those', 'is', 'are', 'my', 'your', 'his', 'her',
+                                'our', 'their', 'its', 'if', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'as', 'of', 'from',
+                                'about', 'ssn', 'id', 'cc', 'cv', 'cvv', 'pin', 'no', 'yes', 'ok', 'new', 'old', 'first', 'last']:
+                continue
+            all_entities.append({
+                'entity_group': 'PERSON',
+                'start': match.start(1),
+                'end': match.end(1),
+                'score': 0.65,
+                'word': name,
+                'detector': 'fallback_name_detector'
+            })
+
+    # Detection for names with titles
+    potential_names = re.findall(r'(?:Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.) ([A-Z][a-zA-Z\-]{2,})', text)
+    for name in potential_names:
+        if name.lower() in COMMON_NAME_WORDS:
+            continue
+        all_entities.append({
+            'entity_group': 'PERSON',
+            'start': text.find(name),
+            'end': text.find(name) + len(name),
+            'score': 0.92,  # High confidence for names with titles
+            'detector': 'title_name_detector'
+        })
+
+    duration = time.time() - start_time
+    logger.info(f"Internal detection completed in {duration:.2f}s. Found {len(all_entities)} potential entities.")
+    return all_entities
 
 # --- Masking, Merging, Verification Logic ---
 def pseudonymize_value(value: str, entity_type: str) -> str:
@@ -867,6 +954,58 @@ async def detect_entities_debug(request: Request):
         })
     except Exception as e:
         logger.error(f"Error in /entities endpoint: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error detecting entities: {str(e)}")
+
+@app.post("/internal_entities")
+async def internal_entities_endpoint(request: Request):
+    """
+    Endpoint that uses only internal detection methods (Presidio, regex).
+    Does not call any external MCP agents.
+    """
+    try:
+        data = await request.json()
+    except:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    if not data or "text" not in data:
+        raise HTTPException(status_code=400, detail="No text provided")
+    
+    input_text = data["text"]
+    
+    try:
+        # Get entities using only internal methods
+        all_entities = run_internal_detectors(input_text)
+        
+        # Apply the same merging logic as the main system
+        merged_entities = merge_overlapping_entities(all_entities, input_text)
+        
+        # Format response
+        response_entities = [{
+            "text": input_text[e['start']:e['end']],
+            "type": e['normalized_type'],
+            "score": e['score'],
+            "detector": e.get('detector', 'unknown'),
+            "span": [e['start'], e['end']]
+        } for e in merged_entities]
+        
+        # Group by detector for clarity
+        detector_counts = {}
+        for e in response_entities:
+            detector = e['detector']
+            if detector not in detector_counts:
+                detector_counts[detector] = 0
+            detector_counts[detector] += 1
+        
+        response_entities.sort(key=lambda x: x['score'], reverse=True)
+        return JSONResponse({
+            "entities": response_entities,
+            "total_count": len(response_entities),
+            "detector_counts": detector_counts,
+            "detectors_used": list(detector_counts.keys()),
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        })
+    except Exception as e:
+        logger.error(f"Error in /internal_entities endpoint: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error detecting entities: {str(e)}")
 
 @app.get("/config")
