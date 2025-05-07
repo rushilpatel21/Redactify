@@ -1,92 +1,106 @@
 import os
 import logging
 import time
-import torch
+import uuid
+import json
 from mcp.server.fastmcp import FastMCP
 from typing import List, Any, Dict, Optional
-from transformers import pipeline
 from dotenv import load_dotenv
-import json
+import openai
+import asyncio
 
 # --- Basic Setup ---
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("MCPClassifierServer")
+logger = logging.getLogger("MCPLLMClassifier")
 
-# --- Model Configuration ---
-MODEL_NAME = os.environ.get("MCP_MODEL_NAME", "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli")
-CANDIDATE_LABELS = ["medical", "technical", "general"]
-CONFIDENCE_THRESHOLD = float(os.environ.get("MCP_THRESHOLD", 0.50))
+# --- LLM Configuration ---
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.environ.get("LLM_MODEL_NAME", "gpt-4-turbo")
+DOCUMENT_CATEGORIES = ["medical", "technical", "general", "legal", "financial"]
 
-# --- Load model at module initialization ---
-logger.info(f"Loading zero-shot model '{MODEL_NAME}'")
-classifier_pipeline = None
+# Initialize OpenAI client
 try:
-    device = 0 if torch.cuda.is_available() else -1
-    logger.info(f"Loading zero-shot model '{MODEL_NAME}' on device: {'GPU' if device == 0 else 'CPU'}")
-    classifier_pipeline = pipeline(
-        "zero-shot-classification",
-        model=MODEL_NAME,
-        device=device
-    )
-    logger.info("Zero-shot classification pipeline loaded successfully.")
+    openai.api_key = OPENAI_API_KEY
+    logger.info(f"OpenAI client configured with model {OPENAI_MODEL}")
 except Exception as e:
-    logger.error(f"Failed to load zero-shot model '{MODEL_NAME}': {e}", exc_info=True)
-    classifier_pipeline = None
+    logger.error(f"Failed to initialize OpenAI client: {e}", exc_info=True)
 
 # --- MCP Server Setup ---
 mcp = FastMCP(
-    name="ZeroShotClassifier",
+    name="LLMClassifier",
     version="1.0.0",
-    description="Zero-shot text classifier for determining text categories"
+    description="LLM-based text classifier for intelligent PII detection routing"
 )
 
 # --- Classification Logic ---
-def model_classify(text: str) -> List[str]:
-    """Classifies text using the zero-shot model, returning a list of relevant categories."""
-    if not classifier_pipeline:
-        logger.error("Classifier pipeline not loaded. Cannot perform classification.")
+async def llm_classify(text: str) -> List[str]:
+    """Classifies text using LLM reasoning, returning a list of relevant categories."""
+    if not OPENAI_API_KEY:
+        logger.error("OpenAI API key not set. Cannot perform LLM classification.")
         return ["general"]
 
     if not text:
         return ["general"]
 
     try:
-        max_length = 512
+        max_length = 4000
         truncated_text = text[:max_length] if len(text) > max_length else text
 
-        results = classifier_pipeline(
-            truncated_text,
-            candidate_labels=CANDIDATE_LABELS,
-            multi_label=True
+        prompt = f"""
+        You are a document classifier that helps route text to specialized PII detection models.
+        
+        Analyze the following text and determine which categories it belongs to from: {', '.join(DOCUMENT_CATEGORIES)}.
+        Multiple categories can apply if the text contains mixed content.
+        Always include "general" as a fallback category if no specific category applies.
+        
+        Return ONLY a JSON array of category names, nothing else.
+        
+        Text to classify:
+        {truncated_text}
+        """
+
+        response = await openai.ChatCompletion.acreate(
+            model=OPENAI_MODEL,
+            messages=[{"role": "system", "content": prompt}],
+            temperature=0.1,
+            max_tokens=100
         )
 
-        scores = results['scores']
-        labels = results['labels']
-        classifications = []
-
-        for label, score in zip(labels, scores):
-            logger.debug(f"Label: {label}, Score: {score:.4f}")
-            if score >= CONFIDENCE_THRESHOLD:
-                classifications.append(label)
-
-        if not classifications or classifications == ["general"]:
-            if "general" not in classifications:
+        # Try to parse the response as JSON array
+        content = response.choices[0].message.content.strip()
+        try:
+            # Remove any markdown code formatting if present
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].strip()
+                
+            classifications = json.loads(content)
+            if not isinstance(classifications, list):
+                classifications = ["general"]
+                
+            # Ensure all classifications are valid
+            classifications = [c.lower() for c in classifications if c.lower() in DOCUMENT_CATEGORIES]
+            
+            # Always include "general" if empty
+            if not classifications:
                 classifications.append("general")
-        else:
-            if "general" in classifications and len(classifications) > 1:
-                classifications.remove("general")
-
+                
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse LLM response as JSON: {content}")
+            classifications = ["general"]
+            
         return sorted(list(set(classifications)))
 
     except Exception as e:
-        logger.error(f"Error during model classification: {e}", exc_info=True)
+        logger.error(f"Error during LLM classification: {e}", exc_info=True)
         return ["general"]
 
 # --- MCP Tools ---
 @mcp.tool()
 async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Classify text using zero-shot classification.
+    """Classify text using LLM-based analysis to determine which PII detection models to use.
     
     Args:
         inputs: The text to classify
@@ -95,20 +109,31 @@ async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> D
     Returns:
         Dictionary containing classifications
     """
+    request_id = str(uuid.uuid4())[:8]
     start_time = time.time()
+    
+    logger.info(f"[{request_id}] Classifying document of length {len(inputs)}")
+    
     text = inputs or ""
-    classifications = model_classify(text)
+    classifications = await llm_classify(text)
+    
     duration = time.time() - start_time
-    logger.info(f"MCP predict tool: classified in {duration:.4f}s")
-    return {"classifications": classifications}
+    logger.info(f"[{request_id}] MCP predict tool: classified as {classifications} in {duration:.4f}s")
+    
+    return {
+        "classifications": classifications,
+        "model_used": OPENAI_MODEL,
+        "processing_time": duration
+    }
 
 @mcp.tool()
 async def health_check() -> Dict[str, str]:
-    """Check the health of the classifier service."""
-    model_status = "loaded" if classifier_pipeline else "failed_to_load"
+    """Check the health of the LLM classifier service."""
+    model_status = "initialized" if OPENAI_API_KEY else "missing_api_key"
     return {
-        "status": "ok", 
-        "service": "ZeroShotClassifier", 
+        "status": "ok" if model_status == "initialized" else "error", 
+        "service": "LLMClassifier", 
+        "model": OPENAI_MODEL,
         "model_status": model_status
     }
 
@@ -118,16 +143,19 @@ if __name__ == "__main__":
     import uvicorn
     
     port = int(os.environ.get("MCP_CLASSIFIER_PORT", 8001))
-    logger.info(f"Starting Zero-Shot Text Classifier MCP Server on port {port}")
+    logger.info(f"Starting LLM Text Classifier MCP Server on port {port}")
     
     # Create a regular FastAPI app
-    app = FastAPI(title="Zero-Shot Classifier MCP Server")
+    app = FastAPI(title="LLM Classifier MCP Server")
     
     @app.post("/mcp")
     async def mcp_endpoint(request: Request) -> Response:
         """MCP JSON-RPC endpoint that processes requests and forwards to appropriate tools"""
+        request_id = str(uuid.uuid4())[:8]
         try:
             data = await request.json()
+            logger.info(f"[{request_id}] Received MCP request")
+            
             # Check if this is a JSON-RPC request
             if "jsonrpc" in data and "method" in data:
                 method = data["method"]
@@ -136,6 +164,7 @@ if __name__ == "__main__":
                 
                 # Call the appropriate tool
                 if method == "predict" and "inputs" in params:
+                    logger.info(f"[{request_id}] Processing predict request for text of length {len(params['inputs'])}")
                     result = await predict(inputs=params["inputs"], parameters=params.get("parameters"))
                     return Response(
                         content=json.dumps({
@@ -178,7 +207,7 @@ if __name__ == "__main__":
                     media_type="application/json"
                 )
         except Exception as e:
-            logger.error(f"Error processing MCP request: {e}", exc_info=True)
+            logger.error(f"[{request_id}] Error processing MCP request: {e}", exc_info=True)
             return Response(
                 content=json.dumps({
                     "jsonrpc": "2.0",

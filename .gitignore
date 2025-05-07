@@ -1,3 +1,4 @@
 server/server_app/__pycache__/
 *.pt
 *.safetensors
+server/.env.ignore

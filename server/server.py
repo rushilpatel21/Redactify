@@ -62,17 +62,21 @@ CONFIG = {
     "enable_medical_pii": os.environ.get("ENABLE_MEDICAL_PII", "True").lower() == "true",
     "enable_technical_ner": os.environ.get("ENABLE_TECHNICAL_NER", "True").lower() == "true",
     "enable_pii_specialized": os.environ.get("ENABLE_PII_SPECIALIZED", "True").lower() == "true",
+    "enable_legal_ner": os.environ.get("ENABLE_LEGAL_NER", "True").lower() == "true",
+    "enable_financial_ner": os.environ.get("ENABLE_FINANCIAL_NER", "True").lower() == "true",
     "mcp_classifier_url": os.environ.get("MCP_CLASSIFIER_URL", "http://localhost:8001"),
     "a2a_general_url": os.environ.get("A2A_GENERAL_URL", "http://localhost:8002"),
     "a2a_medical_url": os.environ.get("A2A_MEDICAL_URL", "http://localhost:8003"),
     "a2a_technical_url": os.environ.get("A2A_TECHNICAL_URL", "http://localhost:8004"),
     "a2a_pii_specialized_url": os.environ.get("A2A_PII_SPECIALIZED_URL", "http://localhost:8005"),
-    "classifier_timeout": int(os.environ.get("CLASSIFIER_TIMEOUT", 5)),
-    "ner_agent_timeout": 180,  # Increase from 60 to 180 seconds
-    "parallel_detector_timeout": 200,  # Increase overall timeout accordingly
-    "context_window": 40,  # Increased from 6 to 40
-    "entity_confidence_threshold": 0.1,  # Lower threshold to catch more potential entities
-    "enable_context_detection": True,  # Add flag to enable/disable context detection
+    "a2a_legal_url": os.environ.get("A2A_LEGAL_URL", "http://localhost:8006"),
+    "a2a_financial_url": os.environ.get("A2A_FINANCIAL_URL", "http://localhost:8007"),
+    "classifier_timeout": int(os.environ.get("CLASSIFIER_TIMEOUT", 10)), # Increased timeout for LLM
+    "ner_agent_timeout": 180,
+    "parallel_detector_timeout": 200,
+    "context_window": 40,
+    "entity_confidence_threshold": 0.1,
+    "enable_context_detection": True,
 }
 
 BLOCKLIST_LIST = load_json_config('blocklist.json', [])
@@ -374,6 +378,10 @@ def run_detectors(text: str) -> tuple[list, list, list]:
         agent_calls.append((invoke_a2a_agent, CONFIG["a2a_medical_url"]))
     if "technical" in classifications and CONFIG["enable_technical_ner"]:
         agent_calls.append((invoke_a2a_agent, CONFIG["a2a_technical_url"]))
+    if "legal" in classifications and CONFIG.get("enable_legal_ner", False):
+        agent_calls.append((invoke_a2a_agent, CONFIG["a2a_legal_url"]))
+    if "financial" in classifications and CONFIG.get("enable_financial_ner", False):
+        agent_calls.append((invoke_a2a_agent, CONFIG["a2a_financial_url"]))
 
     unique_agent_calls = list({call[1]: call for call in agent_calls}.values())
     invoked_agent_urls = [url for func, url in unique_agent_calls]
@@ -822,6 +830,8 @@ async def health_check():
             "medical_ner": CONFIG.get("a2a_medical_url"),
             "technical_ner": CONFIG.get("a2a_technical_url"),
             "pii_specialized": CONFIG.get("a2a_pii_specialized_url"),
+            "legal_ner": CONFIG.get("a2a_legal_url"),
+            "financial_ner": CONFIG.get("a2a_financial_url"),
         }
     })
 
@@ -903,5 +913,7 @@ if __name__ == "__main__":
     print(f"Medical NER (A2A): {CONFIG.get('a2a_medical_url')}")
     print(f"Technical NER (A2A): {CONFIG.get('a2a_technical_url')}")
     print(f"PII Specialized (A2A): {CONFIG.get('a2a_pii_specialized_url')}")
+    print(f"Legal NER (A2A): {CONFIG.get('a2a_legal_url')}")
+    print(f"Financial NER (A2A): {CONFIG.get('a2a_financial_url')}")
     print(f"--------------------------")
     uvicorn.run(app, host="0.0.0.0", port=port, reload=debug)
