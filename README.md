@@ -2,16 +2,14 @@
 
 ![Redactify](https://img.shields.io/badge/Redactify-1.0.0-blue)
 ![React](https://img.shields.io/badge/React-18.2.0-61DAFB)
-![Flask](https://img.shields.io/badge/Flask-2.3.2-000000)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.95.0-009688)
 ![Python](https://img.shields.io/badge/Python-3.9+-3776AB)
 
-Redactify is a comprehensive solution for detecting and anonymizing personally identifiable information (PII) in text documents. The application combines a modern React frontend with a powerful Python Flask backend to provide an intuitive and effective PII redaction service.
+Redactify is a comprehensive solution for detecting and anonymizing personally identifiable information (PII) in text documents. The application combines a modern React frontend with a powerful Python FastAPI backend to provide an intuitive and effective PII redaction service.
 
 ![Redactify Screenshot](assets/Redactify_1.png)
 ![Redactify Screenshot](assets/Redactify_2.png)
 ![Redactify Screenshot](assets/Redactify_3.png)
-
-### PS : Still figuring out a way to host server for free. (There are some memory constraints on service providers like render)
 
 ## 🔍 Overview
 
@@ -27,7 +25,7 @@ redactify/
 │   ├── .env
 │   └── package.json
 │
-├── server/          # Flask backend API
+├── server/          # FastAPI backend API
 │   ├── server.py    # Main API entry point
 │   ├── .env
 │   └── requirements.txt
@@ -64,7 +62,7 @@ redactify/
 
 ### Backend (Server) 
 - Python 3.9+
-- Flask web framework
+- FastAPI web framework
 - Microsoft Presidio Analyzer
 - Hugging Face Transformers (BERT NER model)
 - Regular expressions for pattern matching
