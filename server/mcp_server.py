@@ -21,6 +21,7 @@ from mcp.types import (
 import mcp.server.stdio
 from detection_engine import get_detection_engine
 from model_manager import get_model_manager
+from anonymization_engine import get_anonymization_engine
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -29,16 +30,18 @@ logger = logging.getLogger("RedactifyMCPServer")
 # Initialize global components
 detection_engine = None
 model_manager = None
+anonymization_engine = None
 
 def setup_server() -> Server:
     """Setup and configure the MCP server with all tools and resources"""
-    global detection_engine, model_manager
+    global detection_engine, model_manager, anonymization_engine
     
     server = Server("redactify")
     
     # Initialize components
     detection_engine = get_detection_engine()
     model_manager = get_model_manager()
+    anonymization_engine = get_anonymization_engine()
     
     logger.info("Redactify MCP Server initializing...")
     
@@ -271,7 +274,322 @@ def setup_server() -> Server:
                 }, indent=2)
             )]
     
-    # Tool 4: Model Management
+    # Tool 4: Text Anonymization
+    @server.call_tool()
+    async def anonymize_text(arguments: dict) -> Sequence[TextContent]:
+        """
+        Anonymize text using detected entities with various strategies.
+        
+        Args:
+            text (str): The text to anonymize
+            entities (list, optional): Pre-detected entities (if not provided, will detect automatically)
+            strategy (str, optional): Anonymization strategy ('pseudonymize', 'mask', 'redact', 'custom')
+            preserve_format (bool, optional): Whether to preserve original format
+            custom_rules (dict, optional): Custom anonymization rules per entity type
+            
+        Returns:
+            Anonymized text with metadata about the anonymization process
+        """
+        try:
+            # Extract arguments
+            text = arguments.get("text", "")
+            entities = arguments.get("entities")
+            strategy = arguments.get("strategy", "pseudonymize")
+            preserve_format = arguments.get("preserve_format", True)
+            custom_rules = arguments.get("custom_rules")
+            
+            if not text:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "error": "No text provided for anonymization",
+                        "anonymized_text": "",
+                        "entities_processed": []
+                    }, indent=2)
+                )]
+            
+            logger.info(f"Processing anonymization for text of length {len(text)} with strategy: {strategy}")
+            
+            # If entities not provided, detect them first
+            if entities is None:
+                logger.info("No entities provided, detecting entities first")
+                detected_entities, domains_used = await detection_engine.detect_entities(text)
+                entities = detected_entities
+            
+            # Perform anonymization
+            result = anonymization_engine.anonymize_text(
+                text=text,
+                entities=entities,
+                strategy=strategy,
+                preserve_format=preserve_format,
+                custom_rules=custom_rules
+            )
+            
+            # Add additional metadata
+            result["processing_metadata"]["domains_used"] = getattr(detection_engine, '_last_domains_used', [])
+            result["processing_metadata"]["detection_performed"] = arguments.get("entities") is None
+            
+            logger.info(f"Anonymization completed: {len(result['entities_processed'])} entities processed")
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps(result, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Error in anonymize_text: {e}", exc_info=True)
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "error": f"Anonymization failed: {str(e)}",
+                    "anonymized_text": arguments.get("text", ""),
+                    "entities_processed": []
+                }, indent=2)
+            )]
+    
+    # Tool 5: Entity Verification
+    @server.call_tool()
+    async def verify_entities(arguments: dict) -> Sequence[TextContent]:
+        """
+        Verify and validate detected entities against the original text.
+        
+        Args:
+            text (str): The original text
+            entities (list): List of entities to verify
+            confidence_threshold (float, optional): Minimum confidence for verification
+            
+        Returns:
+            Verification results with entity validation status
+        """
+        try:
+            text = arguments.get("text", "")
+            entities = arguments.get("entities", [])
+            confidence_threshold = arguments.get("confidence_threshold", 0.5)
+            
+            if not text or not entities:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "error": "Both text and entities are required for verification",
+                        "verified_entities": [],
+                        "verification_summary": {}
+                    }, indent=2)
+                )]
+            
+            logger.info(f"Verifying {len(entities)} entities against text of length {len(text)}")
+            
+            verified_entities = []
+            verification_stats = {
+                "total_entities": len(entities),
+                "valid_entities": 0,
+                "invalid_entities": 0,
+                "low_confidence_entities": 0,
+                "out_of_bounds_entities": 0
+            }
+            
+            for entity in entities:
+                start = entity.get('start', 0)
+                end = entity.get('end', 0)
+                score = entity.get('score', 0)
+                entity_type = entity.get('entity_group', 'UNKNOWN')
+                
+                # Verify entity bounds
+                if start < 0 or end > len(text) or start >= end:
+                    verification_stats["out_of_bounds_entities"] += 1
+                    verified_entity = {
+                        **entity,
+                        'verification_status': 'invalid',
+                        'verification_reason': 'out_of_bounds',
+                        'is_valid': False
+                    }
+                # Verify confidence
+                elif score < confidence_threshold:
+                    verification_stats["low_confidence_entities"] += 1
+                    verified_entity = {
+                        **entity,
+                        'verification_status': 'low_confidence',
+                        'verification_reason': f'confidence {score:.3f} below threshold {confidence_threshold}',
+                        'is_valid': False,
+                        'extracted_text': text[start:end]
+                    }
+                else:
+                    verification_stats["valid_entities"] += 1
+                    verified_entity = {
+                        **entity,
+                        'verification_status': 'valid',
+                        'verification_reason': 'passed_all_checks',
+                        'is_valid': True,
+                        'extracted_text': text[start:end]
+                    }
+                
+                verified_entities.append(verified_entity)
+            
+            # Calculate verification summary
+            verification_summary = {
+                **verification_stats,
+                "validation_rate": verification_stats["valid_entities"] / verification_stats["total_entities"] if verification_stats["total_entities"] > 0 else 0,
+                "confidence_threshold_used": confidence_threshold
+            }
+            
+            result = {
+                "verified_entities": verified_entities,
+                "verification_summary": verification_summary,
+                "text_length": len(text),
+                "processing_metadata": {
+                    "verification_performed": True,
+                    "entities_verified": len(verified_entities)
+                }
+            }
+            
+            logger.info(f"Entity verification completed: {verification_stats['valid_entities']}/{verification_stats['total_entities']} entities valid")
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps(result, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Error in verify_entities: {e}", exc_info=True)
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "error": f"Entity verification failed: {str(e)}",
+                    "verified_entities": [],
+                    "verification_summary": {}
+                }, indent=2)
+            )]
+    
+    # Tool 6: Batch Processing
+    @server.call_tool()
+    async def process_batch(arguments: dict) -> Sequence[TextContent]:
+        """
+        Process multiple texts in batch for detection, classification, or anonymization.
+        
+        Args:
+            texts (list): List of texts to process
+            operation (str): Operation to perform ('detect', 'classify', 'anonymize')
+            options (dict, optional): Operation-specific options
+            
+        Returns:
+            Batch processing results for all texts
+        """
+        try:
+            texts = arguments.get("texts", [])
+            operation = arguments.get("operation", "detect")
+            options = arguments.get("options", {})
+            
+            if not texts:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "error": "No texts provided for batch processing",
+                        "results": []
+                    }, indent=2)
+                )]
+            
+            logger.info(f"Processing batch of {len(texts)} texts with operation: {operation}")
+            
+            results = []
+            
+            for i, text in enumerate(texts):
+                logger.debug(f"Processing batch item {i+1}/{len(texts)}")
+                
+                try:
+                    if operation == "detect":
+                        entities, domains = await detection_engine.detect_entities(text, options.get("domains"))
+                        result = {
+                            "text_index": i,
+                            "entities": entities,
+                            "domains_used": domains,
+                            "total_entities": len(entities),
+                            "status": "success"
+                        }
+                    
+                    elif operation == "classify":
+                        classifications = await detection_engine._classify_text(text)
+                        result = {
+                            "text_index": i,
+                            "classifications": classifications,
+                            "primary_domain": classifications[0] if classifications else "general",
+                            "status": "success"
+                        }
+                    
+                    elif operation == "anonymize":
+                        # First detect entities if not provided
+                        entities = options.get("entities", {}).get(str(i))
+                        if entities is None:
+                            entities, _ = await detection_engine.detect_entities(text)
+                        
+                        # Then anonymize
+                        anonymization_result = anonymization_engine.anonymize_text(
+                            text=text,
+                            entities=entities,
+                            strategy=options.get("strategy", "pseudonymize"),
+                            preserve_format=options.get("preserve_format", True),
+                            custom_rules=options.get("custom_rules")
+                        )
+                        
+                        result = {
+                            "text_index": i,
+                            **anonymization_result,
+                            "status": "success"
+                        }
+                    
+                    else:
+                        result = {
+                            "text_index": i,
+                            "error": f"Unknown operation: {operation}",
+                            "status": "error"
+                        }
+                    
+                except Exception as item_error:
+                    logger.error(f"Error processing batch item {i}: {item_error}")
+                    result = {
+                        "text_index": i,
+                        "error": str(item_error),
+                        "status": "error"
+                    }
+                
+                results.append(result)
+            
+            # Calculate batch summary
+            successful_items = sum(1 for r in results if r.get("status") == "success")
+            batch_summary = {
+                "total_texts": len(texts),
+                "successful_items": successful_items,
+                "failed_items": len(texts) - successful_items,
+                "success_rate": successful_items / len(texts) if texts else 0,
+                "operation_performed": operation
+            }
+            
+            batch_result = {
+                "results": results,
+                "batch_summary": batch_summary,
+                "processing_metadata": {
+                    "batch_size": len(texts),
+                    "operation": operation,
+                    "options_used": options
+                }
+            }
+            
+            logger.info(f"Batch processing completed: {successful_items}/{len(texts)} items successful")
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps(batch_result, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Error in process_batch: {e}", exc_info=True)
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "error": f"Batch processing failed: {str(e)}",
+                    "results": []
+                }, indent=2)
+            )]
+    
+    # Tool 7: Model Management
     @server.call_tool()
     async def manage_models(arguments: dict) -> Sequence[TextContent]:
         """
@@ -392,6 +710,87 @@ def setup_server() -> Server:
                         }
                     },
                     "required": ["text"]
+                }
+            ),
+            Tool(
+                name="anonymize_text",
+                description="Anonymize text using detected entities with various strategies",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "The text to anonymize"
+                        },
+                        "entities": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "Pre-detected entities (if not provided, will detect automatically)"
+                        },
+                        "strategy": {
+                            "type": "string",
+                            "enum": ["pseudonymize", "mask", "redact", "custom"],
+                            "description": "Anonymization strategy"
+                        },
+                        "preserve_format": {
+                            "type": "boolean",
+                            "description": "Whether to preserve original format"
+                        },
+                        "custom_rules": {
+                            "type": "object",
+                            "description": "Custom anonymization rules per entity type"
+                        }
+                    },
+                    "required": ["text"]
+                }
+            ),
+            Tool(
+                name="verify_entities",
+                description="Verify and validate detected entities against the original text",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "The original text"
+                        },
+                        "entities": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "List of entities to verify"
+                        },
+                        "confidence_threshold": {
+                            "type": "number",
+                            "minimum": 0.0,
+                            "maximum": 1.0,
+                            "description": "Minimum confidence for verification"
+                        }
+                    },
+                    "required": ["text", "entities"]
+                }
+            ),
+            Tool(
+                name="process_batch",
+                description="Process multiple texts in batch for detection, classification, or anonymization",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "texts": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of texts to process"
+                        },
+                        "operation": {
+                            "type": "string",
+                            "enum": ["detect", "classify", "anonymize"],
+                            "description": "Operation to perform"
+                        },
+                        "options": {
+                            "type": "object",
+                            "description": "Operation-specific options"
+                        }
+                    },
+                    "required": ["texts", "operation"]
                 }
             ),
             Tool(

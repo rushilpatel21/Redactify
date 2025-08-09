@@ -224,14 +224,14 @@ class DetectionEngine:
         return processed_entities, domains
     
     async def _classify_text(self, text: str) -> List[str]:
-        """Classify text to determine relevant domains"""
+        """Classify text to determine relevant domains using Gemini"""
         try:
-            openai_client = await self.model_manager.get_openai_client()
-            if not openai_client:
-                logger.warning("OpenAI client not available, using default classification")
+            gemini_model = self.model_manager.get_gemini_model()
+            if not gemini_model:
+                logger.info("Gemini model not available, using default classification")
                 return ["general"]
             
-            # Use the text classifier logic from the original classifier_server.py
+            # Use the text classifier logic adapted for Gemini
             max_length = 4000
             truncated_text = text[:max_length] if len(text) > max_length else text
             
@@ -250,15 +250,9 @@ class DetectionEngine:
             {truncated_text}
             """
             
-            model_name = os.environ.get("LLM_MODEL_NAME", "gpt-4-turbo")
-            response = await openai_client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "system", "content": prompt}],
-                temperature=0.1,
-                max_tokens=100
-            )
-            
-            content = response.choices[0].message.content.strip()
+            # Generate response using Gemini
+            response = gemini_model.generate_content(prompt)
+            content = response.text.strip()
             
             # Parse JSON response
             try:
@@ -277,43 +271,27 @@ class DetectionEngine:
                 if not valid_classifications:
                     valid_classifications = ["general"]
                 
+                logger.info(f"Gemini classified text as: {valid_classifications}")
                 return sorted(list(set(valid_classifications)))
                 
             except json.JSONDecodeError:
-                logger.warning(f"Failed to parse LLM response: {content}")
+                logger.warning(f"Failed to parse Gemini response: {content}")
                 return ["general"]
                 
         except Exception as e:
-            logger.error(f"Error in text classification: {e}")
+            logger.error(f"Error in Gemini text classification: {e}")
             return ["general"]
     
     async def _get_model_entities(self, text: str, model_name: str) -> List[Dict]:
         """Get entities from a specific ML model"""
         try:
-            model = await self.model_manager.get_model(model_name)
-            if not model:
+            model_wrapper = await self.model_manager.get_model(model_name)
+            if not model_wrapper:
                 logger.warning(f"Model {model_name} not available")
                 return []
             
-            # Run NER prediction
-            results = model(text)
-            
-            # Convert to standard format
-            entities = []
-            for item in results:
-                # Handle numpy types
-                if hasattr(item.get('score', 0), 'item'):
-                    score = float(item['score'].item())
-                else:
-                    score = float(item.get('score', 0))
-                
-                entities.append({
-                    'entity_group': item.get('entity_group', 'UNKNOWN'),
-                    'start': int(item.get('start', 0)),
-                    'end': int(item.get('end', 0)),
-                    'score': score,
-                    'detector': f'model_{model_name}'
-                })
+            # Run NER prediction using the wrapper's predict method
+            entities = model_wrapper.predict(text)
             
             logger.debug(f"Model {model_name} found {len(entities)} entities")
             return entities

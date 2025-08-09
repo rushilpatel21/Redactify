@@ -6,7 +6,7 @@ import json
 from mcp.server.fastmcp import FastMCP
 from typing import List, Any, Dict, Optional
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
+import google.generativeai as genai
 import asyncio
 
 # --- Basic Setup ---
@@ -15,17 +15,17 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("MCPLLMClassifier")
 
 # --- LLM Configuration ---
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_MODEL = os.environ.get("LLM_MODEL_NAME", "gpt-4-turbo")
+GEMINI_API_KEY = "AIzaSyCptLRj8vNEYCt541zcSh3vUzQO1mNp6rU"
 DOCUMENT_CATEGORIES = ["medical", "technical", "general"]
 
-# Initialize OpenAI client
-client = None
+# Initialize Gemini client
+gemini_model = None
 try:
-    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
-    logger.info(f"OpenAI client configured with model {OPENAI_MODEL}")
+    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+    logger.info("Gemini client configured successfully")
 except Exception as e:
-    logger.error(f"Failed to initialize OpenAI client: {e}", exc_info=True)
+    logger.error(f"Failed to initialize Gemini client: {e}", exc_info=True)
 
 # --- MCP Server Setup ---
 mcp = FastMCP(
@@ -36,9 +36,9 @@ mcp = FastMCP(
 
 # --- Classification Logic ---
 async def llm_classify(text: str) -> List[str]:
-    """Classifies text using LLM reasoning, returning a list of relevant categories."""
-    if not OPENAI_API_KEY or not client:
-        logger.error("OpenAI API key not set or client initialization failed. Cannot perform LLM classification.")
+    """Classifies text using Gemini LLM reasoning, returning a list of relevant categories."""
+    if not gemini_model:
+        logger.error("Gemini model not initialized. Cannot perform LLM classification.")
         return ["general"]
 
     if not text:
@@ -61,16 +61,10 @@ async def llm_classify(text: str) -> List[str]:
         {truncated_text}
         """
 
-        # Using the new OpenAI client API (v1.0+)
-        response = await client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[{"role": "system", "content": prompt}],
-            temperature=0.1,
-            max_tokens=100
-        )
+        # Using Gemini to generate response
+        response = gemini_model.generate_content(prompt)
+        content = response.text.strip()
 
-        # Try to parse the response as JSON array
-        content = response.choices[0].message.content.strip()
         try:
             # Remove any markdown code formatting if present
             if "```json" in content:
@@ -90,13 +84,13 @@ async def llm_classify(text: str) -> List[str]:
                 classifications.append("general")
                 
         except json.JSONDecodeError:
-            logger.warning(f"Failed to parse LLM response as JSON: {content}")
+            logger.warning(f"Failed to parse Gemini response as JSON: {content}")
             classifications = ["general"]
             
         return sorted(list(set(classifications)))
 
     except Exception as e:
-        logger.error(f"Error during LLM classification: {e}", exc_info=True)
+        logger.error(f"Error during Gemini classification: {e}", exc_info=True)
         return ["general"]
 
 # --- MCP Tools ---
@@ -124,18 +118,18 @@ async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> D
     
     return {
         "classifications": classifications,
-        "model_used": OPENAI_MODEL,
+        "model_used": "gemini-1.5-flash",
         "processing_time": duration
     }
 
 @mcp.tool()
 async def health_check() -> Dict[str, str]:
     """Check the health of the LLM classifier service."""
-    model_status = "initialized" if OPENAI_API_KEY else "missing_api_key"
+    model_status = "initialized" if gemini_model else "not_initialized"
     return {
         "status": "ok" if model_status == "initialized" else "error", 
         "service": "LLMClassifier", 
-        "model": OPENAI_MODEL,
+        "model": "gemini-1.5-flash",
         "model_status": model_status
     }
 

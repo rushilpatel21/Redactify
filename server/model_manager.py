@@ -12,7 +12,7 @@ import asyncio
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from transformers import pipeline
-from openai import AsyncOpenAI
+import google.generativeai as genai
 import psutil
 import threading
 
@@ -54,13 +54,13 @@ class ModelManager:
         self._models: Dict[str, ModelInfo] = {}
         self._model_configs: Dict[str, ModelConfig] = {}
         self._lock = threading.RLock()
-        self._openai_client: Optional[AsyncOpenAI] = None
+        self._gemini_model = None
         
         # Initialize model configurations
         self._setup_model_configs()
         
-        # Initialize OpenAI client if API key is available
-        self._setup_openai_client()
+        # Initialize Gemini client
+        self._setup_gemini_client()
         
         logger.info(f"ModelManager initialized with max memory: {max_memory_mb}MB")
     
@@ -87,7 +87,7 @@ class ModelManager:
             ),
             "technical": ModelConfig(
                 name="technical",
-                model_path=os.environ.get("A2A_TECHNICAL_MODEL", "microsoft/DialoGPT-medium"),
+                model_path=os.environ.get("A2A_TECHNICAL_MODEL", "dbmdz/bert-large-cased-finetuned-conll03-english"),
                 task="ner", 
                 domain="technical",
                 priority=2,
@@ -121,18 +121,18 @@ class ModelManager:
         
         logger.info(f"Configured {len(self._model_configs)} models")
     
-    def _setup_openai_client(self):
-        """Initialize OpenAI client for text classification"""
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if api_key:
-            try:
-                self._openai_client = AsyncOpenAI(api_key=api_key)
-                logger.info("OpenAI client initialized successfully")
-            except Exception as e:
-                logger.error(f"Failed to initialize OpenAI client: {e}")
-                self._openai_client = None
-        else:
-            logger.warning("OPENAI_API_KEY not found - text classification will be limited")
+    def _setup_gemini_client(self):
+        """Initialize Gemini client for text classification"""
+        # Use the provided API key
+        api_key = "AIzaSyCptLRj8vNEYCt541zcSh3vUzQO1mNp6rU"
+        
+        try:
+            genai.configure(api_key=api_key)
+            self._gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+            logger.info("Gemini client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Gemini client: {e}")
+            self._gemini_model = None
     
     async def get_model(self, model_name: str) -> Optional[Any]:
         """
@@ -173,16 +173,11 @@ class ModelManager:
             # Check if we need to free memory first
             await self._ensure_memory_available(config.max_memory_mb)
             
-            # Load the model based on task type
-            if config.task == "ner":
-                model = pipeline(
-                    "ner", 
-                    model=config.model_path, 
-                    aggregation_strategy="simple",
-                    device=-1  # Use CPU for now, can be optimized later
-                )
-            else:
-                logger.error(f"Unsupported task type: {config.task}")
+            # Load the model using appropriate wrapper
+            model = await self._create_model_wrapper(model_name, config)
+            
+            if not model:
+                logger.error(f"Failed to create model wrapper for {model_name}")
                 return None
             
             load_time = time.time() - start_time
@@ -205,6 +200,42 @@ class ModelManager:
             
         except Exception as e:
             logger.error(f"Failed to load model {model_name}: {e}", exc_info=True)
+            return None
+    
+    async def _create_model_wrapper(self, model_name: str, config: ModelConfig) -> Optional[Any]:
+        """Create appropriate model wrapper based on domain"""
+        try:
+            if model_name == "general":
+                from models.general_ner import create_general_ner_model
+                wrapper = create_general_ner_model(config.model_path)
+            elif model_name == "medical":
+                from models.medical_ner import create_medical_ner_model
+                wrapper = create_medical_ner_model(config.model_path)
+            elif model_name == "technical":
+                from models.technical_ner import create_technical_ner_model
+                wrapper = create_technical_ner_model(config.model_path)
+            elif model_name == "legal":
+                from models.legal_ner import create_legal_ner_model
+                wrapper = create_legal_ner_model(config.model_path)
+            elif model_name == "financial":
+                from models.financial_ner import create_financial_ner_model
+                wrapper = create_financial_ner_model(config.model_path)
+            elif model_name == "pii_specialized":
+                from models.pii_specialized_ner import create_pii_specialized_ner_model
+                wrapper = create_pii_specialized_ner_model(config.model_path)
+            else:
+                logger.error(f"Unknown model type: {model_name}")
+                return None
+            
+            # Load the model
+            if wrapper.load():
+                return wrapper
+            else:
+                logger.error(f"Failed to load wrapper for {model_name}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error creating model wrapper for {model_name}: {e}", exc_info=True)
             return None
     
     async def _ensure_memory_available(self, required_mb: int):
@@ -241,9 +272,9 @@ class ModelManager:
         """Get total memory used by loaded models"""
         return sum(model_info.memory_usage_mb for model_info in self._models.values())
     
-    async def get_openai_client(self) -> Optional[AsyncOpenAI]:
-        """Get the OpenAI client for text classification"""
-        return self._openai_client
+    def get_gemini_model(self):
+        """Get the Gemini model for text classification"""
+        return self._gemini_model
     
     def get_model_stats(self) -> Dict[str, Any]:
         """Get statistics about loaded models"""
@@ -287,8 +318,8 @@ class ModelManager:
             logger.info(f"Cleaning up {len(self._models)} loaded models")
             self._models.clear()
             
-            if self._openai_client:
-                await self._openai_client.close()
+            # Gemini doesn't need explicit cleanup
+            pass
 
 # Global model manager instance
 _model_manager: Optional[ModelManager] = None
