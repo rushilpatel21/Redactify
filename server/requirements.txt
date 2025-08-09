@@ -1,6 +1,5 @@
-# Core
-fastapi>=0.95.0
-uvicorn>=0.21.1
+# Core MCP Server
+mcp>=0.3.0
 python-dotenv>=1.0.0
 pydantic>=1.10.7
 
@@ -9,11 +8,15 @@ presidio-analyzer>=2.2.33
 presidio-anonymizer>=2.2.33
 transformers>=4.28.1
 torch>=2.0.0
-mcp>=0.3.0  # Model Context Protocol
 
 # LLM Support
 openai>=1.0.0
 
 # Utilities
 requests>=2.28.2
+psutil>=5.9.0  # For memory monitoring
+
+# Optional: Keep FastAPI for backward compatibility during transition
+fastapi>=0.95.0
+uvicorn>=0.21.1
 python-multipart>=0.0.6

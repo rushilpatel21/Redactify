@@ -1,0 +1,36 @@
+{
+    "server_info": {
+        "name": "redactify",
+        "version": "1.0.0",
+        "description": "Advanced PII detection and anonymization using specialized NER models",
+        "author": "Redactify Team"
+    },
+    "model_config": {
+        "max_memory_mb": 4096,
+        "default_confidence_threshold": 0.5,
+        "max_workers": 8,
+        "enable_model_caching": true,
+        "preload_models": [
+            "general"
+        ]
+    },
+    "detection_config": {
+        "enable_presidio": true,
+        "enable_regex": true,
+        "enable_contextual": true,
+        "enable_fallback_names": true,
+        "context_window": 40,
+        "entity_confidence_threshold": 0.1
+    },
+    "domain_config": {
+        "enable_medical_pii": true,
+        "enable_technical_ner": true,
+        "enable_legal_ner": true,
+        "enable_financial_ner": true,
+        "enable_pii_specialized": true
+    },
+    "logging": {
+        "level": "INFO",
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    }
+}
