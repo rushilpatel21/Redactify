@@ -162,9 +162,9 @@ class ModelManager:
             if model_name not in self._model_configs:
                 logger.error(f"Unknown model: {model_name}")
                 return None
-            
-            # Load the model
-            return await self._load_model(model_name)
+        
+        # Load the model (outside of lock to allow concurrent loading)
+        return await self._load_model(model_name)
     
     async def _load_model(self, model_name: str) -> Optional[Any]:
         """Load a model and add it to the cache"""
@@ -308,14 +308,40 @@ class ModelManager:
         return list(self._model_configs.keys())
     
     async def preload_models(self, model_names: List[str]):
-        """Preload specified models for faster access"""
+        """Preload specified models concurrently for faster access"""
         logger.info(f"Preloading models: {model_names}")
         
-        for model_name in model_names:
-            if model_name in self._model_configs:
-                await self.get_model(model_name)
-            else:
-                logger.warning(f"Cannot preload unknown model: {model_name}")
+        # Filter valid model names
+        valid_models = [name for name in model_names if name in self._model_configs]
+        invalid_models = [name for name in model_names if name not in self._model_configs]
+        
+        if invalid_models:
+            logger.warning(f"Cannot preload unknown models: {invalid_models}")
+        
+        if not valid_models:
+            return
+        
+        # Load models concurrently
+        start_time = time.time()
+        preload_tasks = [self.get_model(model_name) for model_name in valid_models]
+        
+        results = await asyncio.gather(*preload_tasks, return_exceptions=True)
+        
+        # Log results
+        successful_loads = 0
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Failed to preload model {valid_models[i]}: {result}")
+            elif result is not None:
+                successful_loads += 1
+        
+        duration = time.time() - start_time
+        logger.info(f"Preloaded {successful_loads}/{len(valid_models)} models in {duration:.2f}s")
+    
+    async def preload_common_models(self):
+        """Preload commonly used models for better performance"""
+        common_models = ["general", "pii_specialized"]
+        await self.preload_models(common_models)
     
     async def cleanup(self):
         """Clean up resources"""

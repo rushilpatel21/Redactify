@@ -47,6 +47,13 @@ model_manager = get_model_manager()
 logger.info("=== Redactify Compatibility Server v2.0 ===")
 logger.info("Using new MCP architecture with FastAPI compatibility layer")
 
+@app.on_event("startup")
+async def startup_event():
+    """Preload common models for better performance"""
+    logger.info("Preloading common models...")
+    await model_manager.preload_common_models()
+    logger.info("Server startup complete")
+
 @app.get("/")
 async def root():
     """Root endpoint"""
@@ -198,6 +205,103 @@ async def detect_entities_endpoint(request: Request):
         return JSONResponse(
             status_code=500,
             content={"error": str(e)}
+        )
+
+@app.post("/anonymize_batch")
+async def anonymize_batch_endpoint(request: Request):
+    """
+    Batch anonymization endpoint for processing multiple texts efficiently
+    """
+    start_time = time.time()
+    
+    try:
+        data = await request.json()
+        texts = data.get("texts", [])
+        options = data.get("options", {})
+        full_redaction = data.get("full_redaction", True)
+        
+        logger.info(f"--- /anonymize_batch Request Received ---")
+        logger.info(f"Number of texts: {len(texts)}")
+        logger.info(f"Full redaction: {full_redaction}")
+        
+        if not texts or not isinstance(texts, list):
+            return JSONResponse(
+                status_code=400,
+                content={"error": "No texts provided or invalid format"}
+            )
+        
+        # Step 1: Batch detect entities using new MCP architecture
+        logger.info("Starting batch entity detection...")
+        batch_results = await detection_engine.detect_entities_batch(texts)
+        
+        # Step 2: Process each result
+        strategy = "pseudonymize" if full_redaction else "mask"
+        batch_responses = []
+        
+        for i, (entities, domains) in enumerate(batch_results):
+            text = texts[i]
+            
+            # Filter entities based on options (if provided)
+            if options:
+                filtered_entities = []
+                for entity in entities:
+                    entity_type = entity.get('entity_group', '').upper()
+                    # Map some entity types for compatibility
+                    if entity_type in ['PER', 'PERSON']:
+                        entity_type = 'PERSON'
+                    elif entity_type in ['ORG', 'ORGANIZATION']:
+                        entity_type = 'ORGANIZATION'
+                    elif entity_type in ['LOC', 'LOCATION']:
+                        entity_type = 'LOCATION'
+                    
+                    # Check if this entity type is enabled
+                    if options.get(entity_type, True):
+                        filtered_entities.append(entity)
+                
+                entities = filtered_entities
+            
+            # Anonymize text
+            anonymization_result = anonymization_engine.anonymize_text(
+                text=text,
+                entities=entities,
+                strategy=strategy,
+                preserve_format=not full_redaction
+            )
+            
+            # Prepare individual response
+            batch_responses.append({
+                "anonymized_text": anonymization_result["anonymized_text"],
+                "entities": entities,
+                "domains_detected": domains,
+                "entities_processed": len(anonymization_result["entities_processed"]),
+                "metadata": {
+                    "total_entities": len(entities),
+                    "domains_used": domains,
+                    "detectors_used": list(set(e.get('detector', 'unknown') for e in entities))
+                }
+            })
+        
+        processing_time = time.time() - start_time
+        
+        response = {
+            "results": batch_responses,
+            "batch_size": len(texts),
+            "total_processing_time": processing_time,
+            "average_time_per_text": processing_time / len(texts) if texts else 0,
+            "strategy_used": strategy
+        }
+        
+        logger.info(f"Batch anonymization completed in {processing_time:.2f}s")
+        logger.info(f"Average time per text: {processing_time / len(texts):.2f}s")
+        logger.info(f"--- /anonymize_batch Request End ---")
+        
+        return JSONResponse(content=response)
+        
+    except Exception as e:
+        logger.error(f"Error in /anonymize_batch endpoint: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Internal server error: {str(e)}"}
         )
 
 @app.get("/config")

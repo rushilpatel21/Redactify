@@ -11,6 +11,7 @@ import re
 import json
 import time
 import hashlib
+import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse, urlunparse
 from typing import List, Dict, Any, Optional, Tuple
@@ -156,7 +157,8 @@ class DetectionEngine:
         Returns:
             Tuple of (entities, domains_used)
         """
-        return await self.detect_entities_batch([text], domains)[0]
+        results = await self.detect_entities_batch([text], domains)
+        return results[0]
     
     async def detect_entities_batch(self, texts: List[str], domains: Optional[List[str]] = None) -> List[Tuple[List[Dict], List[str]]]:
         """
