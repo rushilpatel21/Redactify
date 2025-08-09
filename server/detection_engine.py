@@ -156,6 +156,54 @@ class DetectionEngine:
         Returns:
             Tuple of (entities, domains_used)
         """
+        return await self.detect_entities_batch([text], domains)[0]
+    
+    async def detect_entities_batch(self, texts: List[str], domains: Optional[List[str]] = None) -> List[Tuple[List[Dict], List[str]]]:
+        """
+        Batch entity detection for multiple texts with improved concurrency.
+        
+        Args:
+            texts: List of texts to analyze
+            domains: Optional list of domains to focus on (e.g., ['medical', 'technical'])
+            
+        Returns:
+            List of tuples (entities, domains_used) for each text
+        """
+        if not texts:
+            return []
+        
+        # For single text, use the optimized single detection
+        if len(texts) == 1:
+            result = await self._detect_entities_single(texts[0], domains)
+            return [result]
+        
+        # For multiple texts, process them concurrently
+        start_time = time.time()
+        
+        # Create tasks for each text
+        detection_tasks = [
+            self._detect_entities_single(text, domains) 
+            for text in texts
+        ]
+        
+        # Run all detection tasks concurrently
+        results = await asyncio.gather(*detection_tasks, return_exceptions=True)
+        
+        # Process results and handle exceptions
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Error processing text {i}: {result}")
+                processed_results.append(([], ["general"]))  # Fallback
+            else:
+                processed_results.append(result)
+        
+        duration = time.time() - start_time
+        logger.info(f"Batch detection completed for {len(texts)} texts in {duration:.2f}s")
+        
+        return processed_results
+    
+    async def _detect_entities_single(self, text: str, domains: Optional[List[str]] = None) -> Tuple[List[Dict], List[str]]:
         if not text:
             return [], []
         
@@ -168,50 +216,54 @@ class DetectionEngine:
         
         logger.info(f"Processing text with domains: {domains}")
         
-        # Step 2: Run internal detectors in parallel
+        # Step 2: Run all detectors concurrently
+        detection_tasks = []
+        
+        # Internal detectors (run in thread pool)
         with ThreadPoolExecutor(max_workers=self.config["max_workers"]) as executor:
-            futures = []
+            internal_futures = [
+                executor.submit(self._get_presidio_entities, text),
+                executor.submit(self._get_regex_entities, text),
+                executor.submit(self._get_contextual_entities, text)
+            ]
             
-            # Internal detectors
-            futures.append(executor.submit(self._get_presidio_entities, text))
-            futures.append(executor.submit(self._get_regex_entities, text))
-            futures.append(executor.submit(self._get_contextual_entities, text))
-            
-            # ML model detectors based on domains
-            model_futures = []
+            # ML model detectors (async tasks)
+            model_tasks = []
             
             # Always use general model
-            model_futures.append(self._get_model_entities(text, "general"))
+            model_tasks.append(self._get_model_entities(text, "general"))
             
             # Add specialized models based on domains and configuration
             if "medical" in domains and self.config["enable_medical_pii"]:
-                model_futures.append(self._get_model_entities(text, "medical"))
+                model_tasks.append(self._get_model_entities(text, "medical"))
             if "technical" in domains and self.config["enable_technical_ner"]:
-                model_futures.append(self._get_model_entities(text, "technical"))
+                model_tasks.append(self._get_model_entities(text, "technical"))
             if "legal" in domains and self.config["enable_legal_ner"]:
-                model_futures.append(self._get_model_entities(text, "legal"))
+                model_tasks.append(self._get_model_entities(text, "legal"))
             if "financial" in domains and self.config["enable_financial_ner"]:
-                model_futures.append(self._get_model_entities(text, "financial"))
+                model_tasks.append(self._get_model_entities(text, "financial"))
             if self.config["enable_pii_specialized"]:
-                model_futures.append(self._get_model_entities(text, "pii_specialized"))
+                model_tasks.append(self._get_model_entities(text, "pii_specialized"))
+            
+            # Run all model tasks concurrently
+            if model_tasks:
+                model_results = await asyncio.gather(*model_tasks, return_exceptions=True)
+                
+                # Process model results
+                for result in model_results:
+                    if isinstance(result, Exception):
+                        logger.error(f"Error in model detector: {result}")
+                    elif result:
+                        all_entities.extend(result)
             
             # Wait for internal detectors
-            for future in as_completed(futures):
+            for future in as_completed(internal_futures):
                 try:
                     entities = future.result()
                     if entities:
                         all_entities.extend(entities)
                 except Exception as e:
                     logger.error(f"Error in internal detector: {e}")
-            
-            # Wait for model detectors
-            for model_future in model_futures:
-                try:
-                    entities = await model_future
-                    if entities:
-                        all_entities.extend(entities)
-                except Exception as e:
-                    logger.error(f"Error in model detector: {e}")
         
         # Step 3: Add fallback name detection if needed
         if self.config.get("enable_fallback_name_detector", True):

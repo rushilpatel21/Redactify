@@ -123,8 +123,13 @@ class ModelManager:
     
     def _setup_gemini_client(self):
         """Initialize Gemini client for text classification"""
-        # Use the provided API key
-        api_key = "AIzaSyCptLRj8vNEYCt541zcSh3vUzQO1mNp6rU"
+        # Get API key from environment variable
+        api_key = os.environ.get("GEMINI_API_KEY")
+        
+        if not api_key:
+            logger.warning("GEMINI_API_KEY environment variable not set. Gemini classification will be disabled.")
+            self._gemini_model = None
+            return
         
         try:
             genai.configure(api_key=api_key)
