@@ -63,9 +63,12 @@ class DetectionEngine:
             "enable_legal_ner": os.environ.get("ENABLE_LEGAL_NER", "True").lower() == "true",
             "enable_financial_ner": os.environ.get("ENABLE_FINANCIAL_NER", "True").lower() == "true",
             "context_window": 40,
-            "entity_confidence_threshold": 0.1,
+            "entity_confidence_threshold": 0.3,  # Increased from 0.1 to reduce noise
             "enable_context_detection": True,
             "enable_fallback_name_detector": True,
+            # Model-specific confidence thresholds
+            "legal_model_threshold": 0.8,  # Higher threshold for noisy legal model
+            "financial_model_threshold": 0.7,  # Higher threshold for financial model
         }
         
         # Load additional configuration files
@@ -291,14 +294,51 @@ class DetectionEngine:
                 return []
             
             # Run NER prediction using the wrapper's predict method
-            entities = model_wrapper.predict(text)
+            raw_entities = model_wrapper.predict(text)
             
-            logger.debug(f"Model {model_name} found {len(entities)} entities")
-            return entities
+            # Apply model-specific filtering
+            filtered_entities = []
+            for entity in raw_entities:
+                # Apply model-specific confidence thresholds
+                min_confidence = self._get_model_confidence_threshold(model_name)
+                if entity.get('score', 0) < min_confidence:
+                    continue
+                
+                # Filter out generic labels for specific models
+                entity_type = entity.get('entity_group', '').upper()
+                if model_name in ['legal', 'financial'] and self._is_generic_label(entity_type):
+                    continue
+                
+                filtered_entities.append(entity)
+            
+            logger.debug(f"Model {model_name} found {len(raw_entities)} raw entities, {len(filtered_entities)} after filtering")
+            return filtered_entities
             
         except Exception as e:
             logger.error(f"Error getting entities from model {model_name}: {e}")
             return []
+    
+    def _get_model_confidence_threshold(self, model_name: str) -> float:
+        """Get confidence threshold for specific model"""
+        model_thresholds = {
+            'legal': self.config.get('legal_model_threshold', 0.8),
+            'financial': self.config.get('financial_model_threshold', 0.7),
+            'general': 0.5,
+            'medical': 0.6,
+            'technical': 0.6,
+            'pii_specialized': 0.5
+        }
+        return model_thresholds.get(model_name, self.config.get('entity_confidence_threshold', 0.3))
+    
+    def _is_generic_label(self, entity_type: str) -> bool:
+        """Check if entity type is a generic/meaningless label"""
+        generic_labels = {
+            'LABEL_0', 'LABEL_1', 'LABEL_2', 'LABEL_3', 'LABEL_4',
+            'LABEL_5', 'LABEL_6', 'LABEL_7', 'LABEL_8', 'LABEL_9',
+            'B-MISC', 'I-MISC', 'O', 'MISC', 'UNKNOWN', 'OTHER',
+            'NEGATIVE', 'POSITIVE', 'NEUTRAL'  # Sentiment labels
+        }
+        return entity_type.upper() in generic_labels
     
     def _get_presidio_entities(self, text: str) -> List[Dict]:
         """Get entities using Presidio Analyzer"""
@@ -519,19 +559,81 @@ class DetectionEngine:
         if not entities:
             return []
         
-        # Filter by confidence threshold
+        # Filter by confidence threshold and false positives
         confidence_threshold = self.config.get("entity_confidence_threshold", 0.1)
-        filtered_entities = [
-            e for e in entities 
-            if e.get('score', 0) >= confidence_threshold
-        ]
+        filtered_entities = []
+        
+        for e in entities:
+            # Basic confidence filter
+            if e.get('score', 0) < confidence_threshold:
+                continue
+            
+            # Get entity text
+            start, end = e.get('start', 0), e.get('end', 0)
+            entity_text = text[start:end] if start < len(text) and end <= len(text) else ""
+            entity_type = e.get('entity_group', '').upper()
+            
+            # Filter out false positives
+            if self._is_false_positive(entity_text, entity_type):
+                continue
+            
+            # Filter out very short entities (likely noise)
+            if end - start < 2:  # Less than 2 characters
+                continue
+            
+            # Filter out single character entities
+            if len(entity_text.strip()) <= 1:
+                continue
+            
+            # Add entity text to the entity dict for easier processing
+            e['entity_text'] = entity_text
+            filtered_entities.append(e)
         
         # Sort by start position
         filtered_entities.sort(key=lambda x: x.get('start', 0))
         
-        # Merge overlapping entities (simplified version)
+        # Remove exact duplicates and merge overlapping entities
+        deduplicated_entities = self._deduplicate_entities(filtered_entities, text)
+        
+        logger.debug(f"Post-processing: {len(entities)} -> {len(deduplicated_entities)} entities")
+        return deduplicated_entities
+    
+    def _deduplicate_entities(self, entities: List[Dict], text: str) -> List[Dict]:
+        """Remove duplicate entities and merge overlapping ones"""
+        if not entities:
+            return []
+        
+        # Group entities by their text content and type
+        entity_groups = {}
+        for entity in entities:
+            entity_text = entity.get('entity_text', '')
+            entity_type = entity.get('entity_group', '').upper()
+            key = (entity_text.lower(), entity_type)
+            
+            if key not in entity_groups:
+                entity_groups[key] = []
+            entity_groups[key].append(entity)
+        
+        # For each group, keep only the highest confidence entity
+        unique_entities = []
+        for (text_key, type_key), group in entity_groups.items():
+            if not group:
+                continue
+            
+            # Sort by confidence (highest first)
+            group.sort(key=lambda x: x.get('score', 0), reverse=True)
+            best_entity = group[0]
+            
+            # If there are multiple instances of the same entity, keep only the first occurrence
+            # (this prevents the same entity from being anonymized multiple times)
+            unique_entities.append(best_entity)
+        
+        # Sort by start position
+        unique_entities.sort(key=lambda x: x.get('start', 0))
+        
+        # Now handle overlapping entities (different entities that overlap in position)
         merged_entities = []
-        for entity in filtered_entities:
+        for entity in unique_entities:
             if not merged_entities:
                 merged_entities.append(entity)
                 continue
@@ -542,14 +644,102 @@ class DetectionEngine:
             if (entity.get('start', 0) < last_entity.get('end', 0) and 
                 entity.get('end', 0) > last_entity.get('start', 0)):
                 
-                # Choose entity with higher confidence
-                if entity.get('score', 0) > last_entity.get('score', 0):
+                # Choose entity with higher confidence or better type
+                if (entity.get('score', 0) > last_entity.get('score', 0) or 
+                    self._is_better_entity_type(entity.get('entity_group', ''), last_entity.get('entity_group', ''))):
                     merged_entities[-1] = entity
             else:
                 merged_entities.append(entity)
         
-        logger.debug(f"Post-processing: {len(entities)} -> {len(merged_entities)} entities")
         return merged_entities
+    
+    def _is_false_positive(self, entity_text: str, entity_type: str) -> bool:
+        """Check if entity is likely a false positive"""
+        entity_text = entity_text.strip().lower()
+        entity_type = entity_type.upper()
+        
+        # Common false positives for all entity types
+        common_false_positives = {
+            'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+            'by', 'from', 'up', 'about', 'into', 'through', 'during', 'before',
+            'after', 'above', 'below', 'between', 'among', 'is', 'are', 'was',
+            'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does',
+            'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must',
+            'can', 'shall', 'a', 'an', 'this', 'that', 'these', 'those',
+            '.', ',', ':', ';', '(', ')', '[', ']', '{', '}', '-', '_'
+        }
+        
+        # Organization-specific false positives
+        org_false_positives = {
+            'this', 'that', 'these', 'those', 'agreement', 'contract', 'document',
+            'between', 'among', 'within', 'under', 'over', 'above', 'below',
+            'made', 'signed', 'executed', 'entered', 'dated', 'effective',
+            'party', 'parties', 'section', 'clause', 'paragraph', 'article',
+            'whereas', 'therefore', 'hereby', 'herein', 'hereof', 'hereunder',
+            'including', 'excluding', 'subject', 'pursuant', 'accordance',
+            'respect', 'regard', 'connection', 'relation', 'reference'
+        }
+        
+        # Person-specific false positives
+        person_false_positives = {
+            'mr', 'mrs', 'ms', 'dr', 'prof', 'sir', 'madam', 'miss'
+        }
+        
+        # Location-specific false positives
+        location_false_positives = {
+            'here', 'there', 'where', 'everywhere', 'somewhere', 'nowhere',
+            'above', 'below', 'under', 'over', 'inside', 'outside'
+        }
+        
+        # Check common false positives first
+        if entity_text in common_false_positives:
+            return True
+        
+        # Check entity-type specific false positives
+        if entity_type in ['ORGANIZATION', 'ORG'] and entity_text in org_false_positives:
+            return True
+        
+        if entity_type in ['PERSON', 'PER'] and entity_text in person_false_positives:
+            return True
+        
+        if entity_type in ['LOCATION', 'LOC', 'GPE'] and entity_text in location_false_positives:
+            return True
+        
+        # Check for single character or very short meaningless text
+        if len(entity_text) <= 2 and entity_text.isalpha():
+            return True
+        
+        # Check for common English words that shouldn't be entities
+        common_words = {
+            'agreement', 'contract', 'document', 'letter', 'email', 'message',
+            'text', 'content', 'information', 'data', 'details', 'description',
+            'summary', 'report', 'analysis', 'review', 'study', 'research'
+        }
+        
+        if entity_text in common_words:
+            return True
+        
+        return False
+    
+    def _is_better_entity_type(self, type1: str, type2: str) -> bool:
+        """Determine if type1 is better than type2"""
+        # Preference order: specific types > generic types
+        specific_types = {
+            'PERSON', 'ORGANIZATION', 'LOCATION', 'EMAIL_ADDRESS', 'PHONE_NUMBER',
+            'SSN', 'CREDIT_CARD', 'IP_ADDRESS', 'URL', 'DATE_TIME'
+        }
+        
+        type1_specific = type1.upper() in specific_types
+        type2_specific = type2.upper() in specific_types
+        
+        # Prefer specific types over generic ones
+        if type1_specific and not type2_specific:
+            return True
+        elif type2_specific and not type1_specific:
+            return False
+        
+        # If both are specific or both are generic, no preference
+        return False
     
     def get_stats(self) -> Dict[str, Any]:
         """Get detection engine statistics"""
