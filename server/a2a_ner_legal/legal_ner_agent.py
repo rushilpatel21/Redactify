@@ -143,7 +143,7 @@ if __name__ == "__main__":
     import uvicorn
     
     # Service configuration
-    port = int(os.environ.get("A2A_LEGAL_PORT", 8006))
+    port = int(os.environ.get("A2A_LEGAL_PORT", 3004))
     logger.info(f"[{AGENT_ID}] Starting server on port {port}")
     
     # Create a regular FastAPI app

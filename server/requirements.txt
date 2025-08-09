@@ -13,11 +13,22 @@ torch>=2.0.0
 openai>=1.0.0
 google-generativeai>=0.3.0
 
-# Utilities
-requests>=2.28.2
-psutil>=5.9.0  # For memory monitoring
+# HTTP Client for MCP communication
+aiohttp>=3.8.0
+aiofiles>=23.0.0
 
-# Optional: Keep FastAPI for backward compatibility during transition
+# Process management and monitoring
+psutil>=5.9.0
+backoff>=2.2.1
+
+# Configuration management
+PyYAML>=6.0
+
+# FastAPI for main server
 fastapi>=0.95.0
 uvicorn>=0.21.1
 python-multipart>=0.0.6
+
+# Development and testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0

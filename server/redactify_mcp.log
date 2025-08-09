@@ -1,0 +1,486 @@
+2025-08-09 21:54:30,964 - StartupScript - INFO - [start_all.py:91] - Initializing Process Orchestrator...
+2025-08-09 21:54:30,964 - ProcessOrchestrator - INFO - [process_orchestrator.py:113] - Process Orchestrator initialized
+2025-08-09 21:54:30,964 - ProcessOrchestrator - INFO - [process_orchestrator.py:161] - === Starting Redactify MCP System ===
+2025-08-09 21:54:30,964 - ProcessOrchestrator - INFO - [process_orchestrator.py:167] - Step 1: Validating configuration...
+2025-08-09 21:54:30,964 - ProcessOrchestrator - INFO - [process_orchestrator.py:353] - Configuration validation passed
+2025-08-09 21:54:30,964 - ProcessOrchestrator - INFO - [process_orchestrator.py:171] - Step 2: Initializing MCP server manager...
+2025-08-09 21:54:30,964 - MCPServerManager - INFO - [mcp_server_manager.py:122] - Initialized MCP Server Manager (base_dir: C:\Users\Lenovo\Desktop\IMP PDFs\Github\Redactify\server)
+2025-08-09 21:54:30,964 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: general (port 3001)
+2025-08-09 21:54:30,964 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: medical (port 3002)
+2025-08-09 21:54:30,964 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: technical (port 3003)
+2025-08-09 21:54:30,964 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: legal (port 3004)
+2025-08-09 21:54:30,964 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: financial (port 3005)
+2025-08-09 21:54:30,964 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: pii_specialized (port 3006)
+2025-08-09 21:54:30,964 - MCPServerManager - INFO - [mcp_server_manager.py:170] - Starting MCP Server Manager...
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:389] - Initialized MCP Client Manager
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for general at http://localhost:3001
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: general at http://localhost:3001
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for medical at http://localhost:3002
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: medical at http://localhost:3002
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for technical at http://localhost:3003
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: technical at http://localhost:3003
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for legal at http://localhost:3004
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: legal at http://localhost:3004
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for financial at http://localhost:3005
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: financial at http://localhost:3005
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for pii_specialized at http://localhost:3006
+2025-08-09 21:54:30,964 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: pii_specialized at http://localhost:3006
+2025-08-09 21:54:30,964 - MCPServerManager - INFO - [mcp_server_manager.py:192] - MCP Server Manager started successfully
+2025-08-09 21:54:30,964 - ProcessOrchestrator - INFO - [process_orchestrator.py:176] - Step 3: Starting MCP servers...
+2025-08-09 21:54:30,964 - MCPServerManager - INFO - [mcp_server_manager.py:374] - Starting all MCP servers...
+2025-08-09 21:54:30,969 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3001: health_check
+2025-08-09 21:54:30,972 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: general
+2025-08-09 21:54:30,978 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: medical
+2025-08-09 21:54:30,982 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: technical
+2025-08-09 21:54:30,989 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: legal
+2025-08-09 21:54:30,996 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: financial
+2025-08-09 21:54:31,001 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: pii_specialized
+2025-08-09 21:54:31,009 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3001: health_check
+2025-08-09 21:54:31,010 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3002: health_check
+2025-08-09 21:54:31,011 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3003: health_check
+2025-08-09 21:54:31,012 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3004: health_check
+2025-08-09 21:54:31,013 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3005: health_check
+2025-08-09 21:54:31,013 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 21:54:33,036 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Failed to connect to medical: Cannot connect to host localhost:3002 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:33,036 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Failed to connect to technical: Cannot connect to host localhost:3003 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:33,036 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Failed to connect to general: Cannot connect to host localhost:3001 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:33,036 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3002: health_check
+2025-08-09 21:54:33,036 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Failed to connect to legal: Cannot connect to host localhost:3004 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:33,039 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Failed to connect to financial: Cannot connect to host localhost:3005 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:33,039 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:33,054 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Failed to connect to general: Cannot connect to host localhost:3001 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:34,044 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3002: health_check
+2025-08-09 21:54:34,044 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3004: health_check
+2025-08-09 21:54:34,044 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3005: health_check
+2025-08-09 21:54:34,044 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 21:54:34,044 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3003: health_check
+2025-08-09 21:54:34,064 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3001: health_check
+2025-08-09 21:54:35,062 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Failed to connect to medical: Cannot connect to host localhost:3002 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:35,062 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3003: health_check
+2025-08-09 21:54:36,070 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Failed to connect to financial: Cannot connect to host localhost:3005 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:36,070 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Failed to connect to legal: Cannot connect to host localhost:3004 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:36,070 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:36,070 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Failed to connect to technical: Cannot connect to host localhost:3003 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:36,070 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Failed to connect to medical: Cannot connect to host localhost:3002 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:36,086 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Failed to connect to general: Cannot connect to host localhost:3001 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:37,084 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3005: health_check
+2025-08-09 21:54:37,084 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3004: health_check
+2025-08-09 21:54:37,084 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 21:54:37,086 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3002: health_check
+2025-08-09 21:54:37,086 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3003: health_check
+2025-08-09 21:54:37,086 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3001: health_check
+2025-08-09 21:54:37,086 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Failed to connect to technical: Cannot connect to host localhost:3003 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:37,088 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3004: health_check
+2025-08-09 21:54:39,100 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Failed to connect to technical: Cannot connect to host localhost:3003 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:39,100 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Failed to connect to legal: Cannot connect to host localhost:3004 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:39,100 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3005: health_check
+2025-08-09 21:54:39,100 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Failed to connect to financial: Cannot connect to host localhost:3005 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:39,110 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Failed to connect to medical: Cannot connect to host localhost:3002 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:39,110 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Failed to connect to legal: Cannot connect to host localhost:3004 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:39,112 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Failed to connect to general: Cannot connect to host localhost:3001 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:39,112 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:40,112 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3003: health_check
+2025-08-09 21:54:40,114 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3005: health_check
+2025-08-09 21:54:40,114 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3002: health_check
+2025-08-09 21:54:40,116 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3001: health_check
+2025-08-09 21:54:40,116 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 21:54:40,118 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3004: health_check
+2025-08-09 21:54:41,125 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Failed to connect to financial: Cannot connect to host localhost:3005 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:41,125 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 21:54:42,134 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Failed to connect to financial: Cannot connect to host localhost:3005 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:42,134 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Failed to connect to medical: Cannot connect to host localhost:3002 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:42,134 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Failed to connect to legal: Cannot connect to host localhost:3004 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:42,134 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Failed to connect to general: Cannot connect to host localhost:3001 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:42,134 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Failed to connect to technical: Cannot connect to host localhost:3003 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:42,134 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:43,140 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:43,140 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:43,140 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:43,140 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:43,140 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:43,140 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 21:54:43,158 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:43,158 - MCPServerManager - WARNING - [mcp_server_manager.py:496] - Server general is unhealthy
+2025-08-09 21:54:43,160 - MCPServerManager - WARNING - [mcp_server_manager.py:496] - Server medical is unhealthy
+2025-08-09 21:54:43,160 - MCPServerManager - WARNING - [mcp_server_manager.py:496] - Server technical is unhealthy
+2025-08-09 21:54:43,160 - MCPServerManager - WARNING - [mcp_server_manager.py:496] - Server legal is unhealthy
+2025-08-09 21:54:43,160 - MCPServerManager - WARNING - [mcp_server_manager.py:496] - Server financial is unhealthy
+2025-08-09 21:54:43,161 - MCPServerManager - WARNING - [mcp_server_manager.py:496] - Server pii_specialized is unhealthy
+2025-08-09 21:54:44,133 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:44,133 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:44,133 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:44,133 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:44,133 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:45,139 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:45,139 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:45,139 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:45,139 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:45,139 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:45,161 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 21:54:46,132 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:46,132 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:46,132 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:46,133 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:46,133 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:46,174 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:47,145 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:47,145 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:47,145 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:47,145 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:47,145 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:47,145 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:48,148 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:48,149 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:48,149 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:48,149 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:48,149 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:48,149 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:49,152 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:49,152 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:49,152 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:49,152 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:49,152 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:49,152 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:50,154 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:50,155 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:50,155 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:50,155 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:50,155 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:50,155 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:51,160 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:51,160 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:51,160 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:51,160 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:51,160 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:51,160 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:52,163 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:52,164 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:52,164 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:52,164 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:52,164 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:52,165 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:53,171 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:53,171 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:53,171 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:53,171 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:53,171 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:53,171 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:54,178 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:54,179 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:54,179 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:54,179 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:54,179 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:54,179 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:55,193 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:55,193 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:55,193 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:55,193 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:55,193 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:55,193 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:56,215 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:56,215 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:56,215 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:56,215 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:56,215 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:56,215 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:57,217 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:57,217 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:57,217 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:57,217 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:57,217 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:57,217 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:58,227 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:58,227 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:58,227 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:58,229 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:58,229 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:58,229 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:54:59,241 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:54:59,241 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:54:59,241 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:54:59,245 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:54:59,245 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:54:59,245 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:55:00,241 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 21:55:00,241 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 21:55:00,241 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 21:55:00,241 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 21:55:00,241 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 21:55:00,241 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 21:55:01,245 - MCPServerManager - ERROR - [mcp_server_manager.py:288] - MCP server financial failed to start (timeout)
+2025-08-09 21:55:01,245 - MCPServerManager - ERROR - [mcp_server_manager.py:288] - MCP server medical failed to start (timeout)
+2025-08-09 21:55:01,245 - MCPServerManager - ERROR - [mcp_server_manager.py:288] - MCP server technical failed to start (timeout)
+2025-08-09 21:55:01,245 - MCPServerManager - ERROR - [mcp_server_manager.py:288] - MCP server legal failed to start (timeout)
+2025-08-09 21:55:01,245 - MCPServerManager - ERROR - [mcp_server_manager.py:288] - MCP server general failed to start (timeout)
+2025-08-09 21:55:01,247 - MCPServerManager - ERROR - [mcp_server_manager.py:288] - MCP server pii_specialized failed to start (timeout)
+2025-08-09 21:55:01,247 - MCPServerManager - INFO - [mcp_server_manager.py:395] - Started 0/6 MCP servers
+2025-08-09 21:55:01,247 - ProcessOrchestrator - WARNING - [process_orchestrator.py:182] - Failed to start servers: ['general', 'medical', 'technical', 'legal', 'financial', 'pii_specialized']
+2025-08-09 21:55:01,247 - ProcessOrchestrator - ERROR - [process_orchestrator.py:218] - System startup failed: All MCP servers failed to start
+Traceback (most recent call last):
+  File "C:\Users\Lenovo\Desktop\IMP PDFs\Github\Redactify\server\process_orchestrator.py", line 186, in startup
+    raise RuntimeError("All MCP servers failed to start")
+RuntimeError: All MCP servers failed to start
+2025-08-09 21:55:01,247 - MCPServerManager - INFO - [mcp_server_manager.py:199] - Stopping MCP Server Manager...
+2025-08-09 21:55:01,247 - MCPServerManager - INFO - [mcp_server_manager.py:400] - Stopping all MCP servers...
+2025-08-09 21:55:01,247 - MCPServerManager - INFO - [mcp_server_manager.py:318] - Stopping MCP server: general
+2025-08-09 21:55:01,247 - MCPServerManager - INFO - [mcp_server_manager.py:318] - Stopping MCP server: medical
+2025-08-09 21:55:01,247 - MCPServerManager - INFO - [mcp_server_manager.py:318] - Stopping MCP server: technical
+2025-08-09 21:55:01,247 - MCPServerManager - INFO - [mcp_server_manager.py:318] - Stopping MCP server: legal
+2025-08-09 21:55:01,247 - MCPServerManager - INFO - [mcp_server_manager.py:318] - Stopping MCP server: financial
+2025-08-09 21:55:01,247 - MCPServerManager - INFO - [mcp_server_manager.py:318] - Stopping MCP server: pii_specialized
+2025-08-09 21:55:01,247 - MCPServerManager - INFO - [mcp_server_manager.py:417] - All MCP servers stopped
+2025-08-09 21:55:01,253 - MCPServerManager - INFO - [mcp_server_manager.py:225] - MCP Server Manager stopped
+2025-08-09 21:55:01,253 - ProcessOrchestrator - INFO - [process_orchestrator.py:412] - System monitoring stopped
+2025-08-09 21:55:01,253 - StartupScript - ERROR - [start_all.py:126] - System startup failed: All MCP servers failed to start
+Traceback (most recent call last):
+  File "C:\Users\Lenovo\Desktop\IMP PDFs\Github\Redactify\server\start_all.py", line 102, in start_system
+    async with orchestrator:
+               ^^^^^^^^^^^^
+  File "C:\Users\Lenovo\Desktop\IMP PDFs\Github\Redactify\server\process_orchestrator.py", line 138, in __aenter__
+    await self.startup()
+  File "C:\Users\Lenovo\Desktop\IMP PDFs\Github\Redactify\server\process_orchestrator.py", line 186, in startup
+    raise RuntimeError("All MCP servers failed to start")
+RuntimeError: All MCP servers failed to start
+2025-08-09 22:18:44,671 - StartupScript - INFO - [start_all.py:91] - Initializing Process Orchestrator...
+2025-08-09 22:18:44,671 - ProcessOrchestrator - INFO - [process_orchestrator.py:113] - Process Orchestrator initialized
+2025-08-09 22:18:44,671 - ProcessOrchestrator - INFO - [process_orchestrator.py:161] - === Starting Redactify MCP System ===
+2025-08-09 22:18:44,671 - ProcessOrchestrator - INFO - [process_orchestrator.py:167] - Step 1: Validating configuration...
+2025-08-09 22:18:44,671 - ProcessOrchestrator - INFO - [process_orchestrator.py:353] - Configuration validation passed
+2025-08-09 22:18:44,671 - ProcessOrchestrator - INFO - [process_orchestrator.py:171] - Step 2: Initializing MCP server manager...
+2025-08-09 22:18:44,671 - MCPServerManager - INFO - [mcp_server_manager.py:122] - Initialized MCP Server Manager (base_dir: C:\Users\Lenovo\Desktop\IMP PDFs\Github\Redactify\server)
+2025-08-09 22:18:44,671 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: general (port 3001)
+2025-08-09 22:18:44,671 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: medical (port 3002)
+2025-08-09 22:18:44,671 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: technical (port 3003)
+2025-08-09 22:18:44,671 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: legal (port 3004)
+2025-08-09 22:18:44,671 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: financial (port 3005)
+2025-08-09 22:18:44,671 - MCPServerManager - INFO - [mcp_server_manager.py:153] - Added MCP server: pii_specialized (port 3006)
+2025-08-09 22:18:44,671 - MCPServerManager - INFO - [mcp_server_manager.py:170] - Starting MCP Server Manager...
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:389] - Initialized MCP Client Manager
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for general at http://localhost:3001
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: general at http://localhost:3001
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for medical at http://localhost:3002
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: medical at http://localhost:3002
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for technical at http://localhost:3003
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: technical at http://localhost:3003
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for legal at http://localhost:3004
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: legal at http://localhost:3004
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for financial at http://localhost:3005
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: financial at http://localhost:3005
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:186] - Initialized MCP client for pii_specialized at http://localhost:3006
+2025-08-09 22:18:44,671 - MCPClient - INFO - [mcp_client.py:425] - Added MCP server: pii_specialized at http://localhost:3006
+2025-08-09 22:18:44,671 - MCPServerManager - INFO - [mcp_server_manager.py:192] - MCP Server Manager started successfully
+2025-08-09 22:18:44,671 - ProcessOrchestrator - INFO - [process_orchestrator.py:176] - Step 3: Starting MCP servers...
+2025-08-09 22:18:44,671 - MCPServerManager - INFO - [mcp_server_manager.py:386] - Starting all MCP servers...
+2025-08-09 22:18:44,671 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3001: health_check
+2025-08-09 22:18:44,680 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: general
+2025-08-09 22:18:44,686 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: medical
+2025-08-09 22:18:44,692 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: technical
+2025-08-09 22:18:44,698 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: legal
+2025-08-09 22:18:44,703 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: financial
+2025-08-09 22:18:44,708 - MCPServerManager - INFO - [mcp_server_manager.py:252] - Starting MCP server: pii_specialized
+2025-08-09 22:18:44,716 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3001: health_check
+2025-08-09 22:18:44,716 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3002: health_check
+2025-08-09 22:18:44,719 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3003: health_check
+2025-08-09 22:18:44,720 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3004: health_check
+2025-08-09 22:18:44,720 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3005: health_check
+2025-08-09 22:18:44,721 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 22:18:46,760 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Failed to connect to legal: Cannot connect to host localhost:3004 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:46,760 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Failed to connect to financial: Cannot connect to host localhost:3005 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:46,760 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Failed to connect to technical: Cannot connect to host localhost:3003 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:46,760 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Failed to connect to general: Cannot connect to host localhost:3001 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:46,760 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3002: health_check
+2025-08-09 22:18:46,762 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Failed to connect to medical: Cannot connect to host localhost:3002 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:46,762 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:46,762 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Failed to connect to general: Cannot connect to host localhost:3001 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:47,770 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3004: health_check
+2025-08-09 22:18:47,771 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3003: health_check
+2025-08-09 22:18:47,771 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3002: health_check
+2025-08-09 22:18:47,771 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 22:18:47,771 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3005: health_check
+2025-08-09 22:18:47,771 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3001: health_check
+2025-08-09 22:18:48,777 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Failed to connect to medical: Cannot connect to host localhost:3002 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:48,778 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3003: health_check
+2025-08-09 22:18:49,797 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Failed to connect to legal: Cannot connect to host localhost:3004 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:49,802 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Failed to connect to technical: Cannot connect to host localhost:3003 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:49,804 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Failed to connect to medical: Cannot connect to host localhost:3002 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:49,804 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Failed to connect to financial: Cannot connect to host localhost:3005 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:49,804 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:49,814 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Failed to connect to general: Cannot connect to host localhost:3001 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:50,800 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3004: health_check
+2025-08-09 22:18:50,802 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Failed to connect to technical: Cannot connect to host localhost:3003 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:50,802 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3004: health_check
+2025-08-09 22:18:50,804 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3003: health_check
+2025-08-09 22:18:50,804 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3002: health_check
+2025-08-09 22:18:50,805 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 22:18:50,805 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3001: health_check
+2025-08-09 22:18:50,806 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3005: health_check
+2025-08-09 22:18:52,844 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Failed to connect to legal: Cannot connect to host localhost:3004 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:52,844 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3005: health_check
+2025-08-09 22:18:52,844 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Failed to connect to technical: Cannot connect to host localhost:3003 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:52,844 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Failed to connect to general: Cannot connect to host localhost:3001 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:52,844 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Failed to connect to financial: Cannot connect to host localhost:3005 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:52,847 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Failed to connect to legal: Cannot connect to host localhost:3004 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:52,847 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Failed to connect to medical: Cannot connect to host localhost:3002 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:52,847 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:53,848 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3003: health_check
+2025-08-09 22:18:53,849 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3001: health_check
+2025-08-09 22:18:53,849 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3005: health_check
+2025-08-09 22:18:53,849 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3002: health_check
+2025-08-09 22:18:53,849 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 22:18:53,849 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3004: health_check
+2025-08-09 22:18:54,878 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Failed to connect to financial: Cannot connect to host localhost:3005 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:54,878 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 22:18:55,871 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Failed to connect to medical: Cannot connect to host localhost:3002 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:55,872 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Failed to connect to technical: Cannot connect to host localhost:3003 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:55,872 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:55,873 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Failed to connect to general: Cannot connect to host localhost:3001 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:55,874 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Failed to connect to financial: Cannot connect to host localhost:3005 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:55,874 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Failed to connect to legal: Cannot connect to host localhost:3004 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:56,879 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:18:56,880 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:18:56,880 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:18:56,881 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:18:56,881 - MCPClient - DEBUG - [mcp_client.py:225] - Making MCP request to http://localhost:3006: health_check
+2025-08-09 22:18:56,882 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:18:56,918 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:56,919 - MCPServerManager - WARNING - [mcp_server_manager.py:508] - Server general is unhealthy
+2025-08-09 22:18:56,919 - MCPServerManager - WARNING - [mcp_server_manager.py:508] - Server medical is unhealthy
+2025-08-09 22:18:56,919 - MCPServerManager - WARNING - [mcp_server_manager.py:508] - Server technical is unhealthy
+2025-08-09 22:18:56,920 - MCPServerManager - WARNING - [mcp_server_manager.py:508] - Server legal is unhealthy
+2025-08-09 22:18:56,920 - MCPServerManager - WARNING - [mcp_server_manager.py:508] - Server financial is unhealthy
+2025-08-09 22:18:56,921 - MCPServerManager - WARNING - [mcp_server_manager.py:508] - Server pii_specialized is unhealthy
+2025-08-09 22:18:57,896 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:18:57,896 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:18:57,898 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:18:57,898 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:18:57,898 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:18:58,902 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:18:58,902 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:18:58,902 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:18:58,904 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:18:58,904 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:18:58,915 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Failed to connect to pii_specialized: Cannot connect to host localhost:3006 ssl:default [The remote computer refused the network connection]
+2025-08-09 22:18:59,910 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:18:59,911 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:18:59,911 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:18:59,911 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:18:59,912 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:18:59,912 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:00,917 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:00,917 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:00,918 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:00,918 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:00,919 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:00,919 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:01,920 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:01,921 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:01,921 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:01,922 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:01,922 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:01,922 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:02,936 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:02,937 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:02,937 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:02,937 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:02,938 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:02,938 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:03,944 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:03,944 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:03,945 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:03,945 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:03,946 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:03,946 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:04,957 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:04,957 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:04,957 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:04,957 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:04,957 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:04,957 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:05,969 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:05,969 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:05,969 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:05,969 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:05,969 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:05,969 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:06,970 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:06,970 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:06,971 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:06,971 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:06,972 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:06,972 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:07,946 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:07,946 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:07,946 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:07,946 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:07,946 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:07,950 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:08,952 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:08,952 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:08,952 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:08,952 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:08,952 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:08,952 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:09,956 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:09,956 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:09,956 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:09,956 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:09,956 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:09,956 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:10,954 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:10,954 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:10,954 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:10,954 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:10,956 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:10,956 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:11,966 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:11,966 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:11,966 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:11,966 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:11,968 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:11,968 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:12,973 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:12,973 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:12,973 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:12,973 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:12,973 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:12,975 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:13,990 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for medical: Circuit breaker is open for medical
+2025-08-09 22:19:13,991 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for technical: Circuit breaker is open for technical
+2025-08-09 22:19:13,991 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for financial: Circuit breaker is open for financial
+2025-08-09 22:19:13,991 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for general: Circuit breaker is open for general
+2025-08-09 22:19:13,992 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for legal: Circuit breaker is open for legal
+2025-08-09 22:19:13,992 - MCPClient - WARNING - [mcp_client.py:341] - Health check failed for pii_specialized: Circuit breaker is open for pii_specialized
+2025-08-09 22:19:14,998 - MCPServerManager - ERROR - [mcp_server_manager.py:300] - MCP server medical failed to start (timeout)
+2025-08-09 22:19:14,999 - MCPServerManager - ERROR - [mcp_server_manager.py:300] - MCP server technical failed to start (timeout)
+2025-08-09 22:19:14,999 - MCPServerManager - ERROR - [mcp_server_manager.py:300] - MCP server financial failed to start (timeout)
+2025-08-09 22:19:14,999 - MCPServerManager - ERROR - [mcp_server_manager.py:300] - MCP server general failed to start (timeout)
+2025-08-09 22:19:14,999 - MCPServerManager - ERROR - [mcp_server_manager.py:300] - MCP server legal failed to start (timeout)
+2025-08-09 22:19:15,000 - MCPServerManager - ERROR - [mcp_server_manager.py:300] - MCP server pii_specialized failed to start (timeout)
+2025-08-09 22:19:15,000 - MCPServerManager - INFO - [mcp_server_manager.py:407] - Started 0/6 MCP servers
+2025-08-09 22:19:15,000 - ProcessOrchestrator - WARNING - [process_orchestrator.py:182] - Failed to start servers: ['general', 'medical', 'technical', 'legal', 'financial', 'pii_specialized']
+2025-08-09 22:19:15,000 - ProcessOrchestrator - ERROR - [process_orchestrator.py:218] - System startup failed: All MCP servers failed to start
+Traceback (most recent call last):
+  File "C:\Users\Lenovo\Desktop\IMP PDFs\Github\Redactify\server\process_orchestrator.py", line 186, in startup
+    raise RuntimeError("All MCP servers failed to start")
+RuntimeError: All MCP servers failed to start
+2025-08-09 22:19:15,099 - MCPServerManager - INFO - [mcp_server_manager.py:199] - Stopping MCP Server Manager...
+2025-08-09 22:19:15,099 - MCPServerManager - INFO - [mcp_server_manager.py:412] - Stopping all MCP servers...
+2025-08-09 22:19:15,099 - MCPServerManager - INFO - [mcp_server_manager.py:330] - Stopping MCP server: general
+2025-08-09 22:19:15,103 - MCPServerManager - INFO - [mcp_server_manager.py:330] - Stopping MCP server: medical
+2025-08-09 22:19:15,103 - MCPServerManager - INFO - [mcp_server_manager.py:330] - Stopping MCP server: technical
+2025-08-09 22:19:15,103 - MCPServerManager - INFO - [mcp_server_manager.py:330] - Stopping MCP server: legal
+2025-08-09 22:19:15,103 - MCPServerManager - INFO - [mcp_server_manager.py:330] - Stopping MCP server: financial
+2025-08-09 22:19:15,103 - MCPServerManager - INFO - [mcp_server_manager.py:330] - Stopping MCP server: pii_specialized
+2025-08-09 22:19:15,103 - MCPServerManager - INFO - [mcp_server_manager.py:429] - All MCP servers stopped
+2025-08-09 22:19:15,103 - MCPServerManager - INFO - [mcp_server_manager.py:225] - MCP Server Manager stopped
+2025-08-09 22:19:15,105 - ProcessOrchestrator - INFO - [process_orchestrator.py:412] - System monitoring stopped
+2025-08-09 22:19:15,105 - StartupScript - ERROR - [start_all.py:126] - System startup failed: All MCP servers failed to start
+Traceback (most recent call last):
+  File "C:\Users\Lenovo\Desktop\IMP PDFs\Github\Redactify\server\start_all.py", line 102, in start_system
+    async with orchestrator:
+               ^^^^^^^^^^^^
+  File "C:\Users\Lenovo\Desktop\IMP PDFs\Github\Redactify\server\process_orchestrator.py", line 138, in __aenter__
+    await self.startup()
+  File "C:\Users\Lenovo\Desktop\IMP PDFs\Github\Redactify\server\process_orchestrator.py", line 186, in startup
+    raise RuntimeError("All MCP servers failed to start")
+RuntimeError: All MCP servers failed to start

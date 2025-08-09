@@ -29,13 +29,52 @@ GEMINI_API_KEY=your_api_key_here
 pip install -r requirements.txt
 ```
 
-### 3. Run Server
+### 3. Start Server (Automatic MCP Management)
+
+The main server now automatically starts all MCP servers! Just run:
 
 ```bash
 python server.py
 ```
 
-The server will start on `http://localhost:8000`
+The server will:
+1. ✅ **Automatically start all MCP servers** (ports 3001-3006)
+2. ✅ **Wait for them to become healthy**
+3. ✅ **Start the main server** on `http://localhost:8000`
+4. ✅ **Monitor MCP servers** and restart if needed
+5. ✅ **Gracefully shutdown all servers** when stopped
+
+### 4. Verify Everything is Working
+
+Check the server status:
+- **Main Server**: http://localhost:8000/health
+- **MCP Status**: http://localhost:8000/mcp-status
+- **Individual MCP Servers**: http://localhost:3001/health (3001-3006)
+
+### 5. Manual MCP Server Management (Optional)
+
+If you need to start MCP servers manually for debugging:
+
+**Option A: Using Python script**
+```bash
+python start_mcp_servers.py
+```
+
+**Option B: Using PowerShell (Windows)**
+```powershell
+.\start_mcp_servers.ps1
+```
+
+**Option C: Individual servers**
+```bash
+# General NER (Port 3001)
+python a2a_ner_general/general_ner_agent.py
+
+# Medical NER (Port 3002)  
+python a2a_ner_medical/medical_ner_agent.py
+
+# ... etc for other servers
+```
 
 ## API Endpoints
 

@@ -21,7 +21,9 @@ from dotenv import load_dotenv
 # Import our new MCP components
 from detection_engine import get_detection_engine
 from anonymization_engine import get_anonymization_engine
+from mcp_client import MCPClientManager, MCPServerConfig
 from model_manager import get_model_manager
+from auto_mcp_manager import get_auto_mcp_manager
 
 # Load environment variables
 load_dotenv()
@@ -43,16 +45,76 @@ app.add_middleware(
 detection_engine = get_detection_engine()
 anonymization_engine = get_anonymization_engine()
 model_manager = get_model_manager()
+auto_mcp_manager = get_auto_mcp_manager()
+mcp_client_manager: Optional[MCPClientManager] = None
 
 logger.info("=== Redactify Server v2.0 ===")
-logger.info("Using new MCP architecture with improved performance")
+logger.info("Using true MCP architecture with distributed services")
 
 @app.on_event("startup")
 async def startup_event():
-    """Preload common models for better performance"""
-    logger.info("Preloading common models...")
-    await model_manager.preload_common_models()
-    logger.info("Server startup complete")
+    """Initialize MCP servers and client connections"""
+    global mcp_client_manager
+    
+    logger.info("=== Starting Redactify MCP System ===")
+    
+    # Step 1: Automatically start all MCP servers
+    logger.info("Step 1: Starting MCP servers automatically...")
+    success = await auto_mcp_manager.start_all_servers(timeout=180.0)  # 3 minutes timeout
+    
+    if not success:
+        logger.error("Failed to start MCP servers! Some functionality may be limited.")
+        # Continue anyway - the system can work with just Presidio and regex
+    else:
+        logger.info("✓ All MCP servers started successfully")
+    
+    # Step 2: Create MCP client manager
+    logger.info("Step 2: Initializing MCP client connections...")
+    mcp_client_manager = MCPClientManager()
+    await mcp_client_manager.__aenter__()
+    
+    # Add MCP server configurations
+    mcp_servers = [
+        MCPServerConfig("general", port=3001),
+        MCPServerConfig("medical", port=3002),
+        MCPServerConfig("technical", port=3003),
+        MCPServerConfig("legal", port=3004),
+        MCPServerConfig("financial", port=3005),
+        MCPServerConfig("pii_specialized", port=3006),
+    ]
+    
+    for server_config in mcp_servers:
+        mcp_client_manager.add_server(server_config)
+    
+    # Step 3: Update detection engine to use MCP clients
+    detection_engine.set_mcp_client_manager(mcp_client_manager)
+    
+    logger.info("✓ MCP client connections established")
+    logger.info("✓ Server startup complete")
+    logger.info("=== Redactify MCP System Ready ===")
+    
+    # Start monitoring MCP servers
+    auto_mcp_manager.monitoring_task = asyncio.create_task(auto_mcp_manager.start_monitoring())
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup MCP servers and client connections"""
+    global mcp_client_manager
+    
+    logger.info("=== Shutting Down Redactify MCP System ===")
+    
+    # Close MCP client connections
+    if mcp_client_manager:
+        logger.info("Closing MCP client connections...")
+        await mcp_client_manager.__aexit__(None, None, None)
+        logger.info("✓ MCP client connections closed")
+    
+    # Shutdown all MCP servers
+    logger.info("Shutting down MCP servers...")
+    await auto_mcp_manager.shutdown_all_servers()
+    logger.info("✓ All MCP servers stopped")
+    
+    logger.info("=== Shutdown Complete ===")
 
 @app.get("/")
 async def root():
@@ -309,7 +371,8 @@ async def health_check():
             "components": {
                 "detection_engine": "ok",
                 "anonymization_engine": "ok",
-                "model_manager": "ok"
+                "model_manager": "ok",
+                "mcp_servers": "checking..."
             }
         }
         
@@ -322,11 +385,65 @@ async def health_check():
             health_status["components"]["model_manager"] = f"error: {str(e)}"
             health_status["status"] = "degraded"
         
+        # Check MCP servers
+        try:
+            mcp_health = await auto_mcp_manager.check_all_health()
+            healthy_servers = sum(1 for is_healthy in mcp_health.values() if is_healthy)
+            total_servers = len(mcp_health)
+            
+            health_status["mcp_servers"] = {
+                "healthy": healthy_servers,
+                "total": total_servers,
+                "servers": mcp_health
+            }
+            health_status["components"]["mcp_servers"] = f"{healthy_servers}/{total_servers} healthy"
+            
+            if healthy_servers == 0:
+                health_status["status"] = "degraded"
+            elif healthy_servers < total_servers:
+                health_status["status"] = "degraded"
+                
+        except Exception as e:
+            health_status["components"]["mcp_servers"] = f"error: {str(e)}"
+            health_status["status"] = "degraded"
+        
         return health_status
         
     except Exception as e:
         return {
             "status": "unhealthy",
+            "error": str(e),
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        }
+
+@app.get("/mcp-status")
+async def mcp_status():
+    """Get detailed MCP server status"""
+    try:
+        server_status = auto_mcp_manager.get_server_status()
+        health_results = await auto_mcp_manager.check_all_health()
+        
+        # Combine status and health information
+        detailed_status = {}
+        for name, status in server_status.items():
+            detailed_status[name] = {
+                **status,
+                "healthy": health_results.get(name, False),
+                "url": f"http://localhost:{status['port']}"
+            }
+        
+        return {
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
+            "servers": detailed_status,
+            "summary": {
+                "total": len(detailed_status),
+                "running": sum(1 for s in detailed_status.values() if s["running"]),
+                "healthy": sum(1 for s in detailed_status.values() if s["healthy"])
+            }
+        }
+        
+    except Exception as e:
+        return {
             "error": str(e),
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         }
@@ -337,12 +454,24 @@ if __name__ == "__main__":
     
     print(f"=== Redactify Server v2.0 ===")
     print(f"Architecture: MCP (Model Context Protocol)")
+    print(f"Auto-Management: MCP servers will start automatically")
     print(f"Serving on: http://0.0.0.0:{port}")
     print(f"Debug mode: {debug}")
     print(f"Environment: {os.environ.get('ENVIRONMENT', 'development')}")
     print(f"Max workers: {os.environ.get('MAX_WORKERS', '8')}")
     print(f"Max model memory: {os.environ.get('MAX_MODEL_MEMORY_MB', '4096')}MB")
     print(f"Gemini API: {'✓' if os.environ.get('GEMINI_API_KEY') else '✗'}")
+    print(f"")
+    print(f"MCP Servers (auto-started):")
+    print(f"  • General NER:      http://localhost:3001")
+    print(f"  • Medical NER:      http://localhost:3002")
+    print(f"  • Technical NER:    http://localhost:3003")
+    print(f"  • Legal NER:        http://localhost:3004")
+    print(f"  • Financial NER:    http://localhost:3005")
+    print(f"  • PII Specialized:  http://localhost:3006")
+    print(f"")
+    print(f"Health Check: http://localhost:{port}/health")
+    print(f"MCP Status:   http://localhost:{port}/mcp-status")
     print(f"=============================")
     
     uvicorn.run(

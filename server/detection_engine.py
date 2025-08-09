@@ -14,9 +14,10 @@ import hashlib
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse, urlunparse
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, TYPE_CHECKING
 from presidio_analyzer import AnalyzerEngine
-from model_manager import get_model_manager
+if TYPE_CHECKING:
+    from mcp_client import MCPClientManager
 
 logger = logging.getLogger("DetectionEngine")
 
@@ -30,7 +31,7 @@ class DetectionEngine:
     """
     
     def __init__(self):
-        self.model_manager = get_model_manager()
+        self.mcp_client_manager: Optional['MCPClientManager'] = None
         self.presidio_analyzer = None
         self.regex_patterns = []
         self.config = {}
@@ -45,6 +46,11 @@ class DetectionEngine:
         self._load_regex_patterns()
         
         logger.info("DetectionEngine initialized successfully")
+    
+    def set_mcp_client_manager(self, mcp_client_manager: 'MCPClientManager'):
+        """Set the MCP client manager for model communication"""
+        self.mcp_client_manager = mcp_client_manager
+        logger.info("MCP client manager configured for DetectionEngine")
     
     def _load_configuration(self):
         """Load configuration from JSON files and environment variables"""
@@ -281,12 +287,29 @@ class DetectionEngine:
         return processed_entities, domains
     
     async def _classify_text(self, text: str) -> List[str]:
-        """Classify text to determine relevant domains using Gemini"""
+        """Classify text to determine relevant domains using MCP classifier"""
         try:
-            gemini_model = self.model_manager.get_gemini_model()
-            if not gemini_model:
-                logger.info("Gemini model not available, using default classification")
-                return ["general"]
+            # For now, use simple heuristic classification
+            # TODO: Implement MCP classifier service
+            domains = ["general"]
+            
+            # Simple keyword-based classification
+            text_lower = text.lower()
+            
+            if any(word in text_lower for word in ['medical', 'patient', 'doctor', 'hospital', 'diagnosis']):
+                domains.append("medical")
+            
+            if any(word in text_lower for word in ['agreement', 'contract', 'legal', 'court', 'law']):
+                domains.append("legal")
+            
+            if any(word in text_lower for word in ['financial', 'bank', 'credit', 'loan', 'investment']):
+                domains.append("financial")
+            
+            if any(word in text_lower for word in ['technical', 'software', 'code', 'api', 'system']):
+                domains.append("technical")
+            
+            logger.debug(f"Classified text domains: {domains}")
+            return domains
             
             # Use the text classifier logic adapted for Gemini
             max_length = 4000
@@ -340,15 +363,24 @@ class DetectionEngine:
             return ["general"]
     
     async def _get_model_entities(self, text: str, model_name: str) -> List[Dict]:
-        """Get entities from a specific ML model"""
+        """Get entities from a specific MCP model server"""
         try:
-            model_wrapper = await self.model_manager.get_model(model_name)
-            if not model_wrapper:
-                logger.warning(f"Model {model_name} not available")
+            if not self.mcp_client_manager:
+                logger.warning("MCP client manager not available")
                 return []
             
-            # Run NER prediction using the wrapper's predict method
-            raw_entities = model_wrapper.predict(text)
+            # Get MCP client for the model
+            try:
+                client = self.mcp_client_manager.get_client(model_name)
+            except Exception as e:
+                logger.warning(f"MCP client {model_name} not available: {e}")
+                return []
+            
+            # Make prediction request to MCP server
+            result = await client.predict(text)
+            
+            # Extract entities from MCP response
+            raw_entities = result.get('entities', [])
             
             # Apply model-specific filtering
             filtered_entities = []
@@ -363,13 +395,16 @@ class DetectionEngine:
                 if model_name in ['legal', 'financial'] and self._is_generic_label(entity_type):
                     continue
                 
+                # Add detector information
+                entity['detector'] = f'mcp_{model_name}'
+                
                 filtered_entities.append(entity)
             
-            logger.debug(f"Model {model_name} found {len(raw_entities)} raw entities, {len(filtered_entities)} after filtering")
+            logger.debug(f"MCP model {model_name} found {len(raw_entities)} raw entities, {len(filtered_entities)} after filtering")
             return filtered_entities
             
         except Exception as e:
-            logger.error(f"Error getting entities from model {model_name}: {e}")
+            logger.error(f"Error getting entities from MCP model {model_name}: {e}")
             return []
     
     def _get_model_confidence_threshold(self, model_name: str) -> float:
