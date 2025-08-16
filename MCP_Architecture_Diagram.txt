@@ -1,0 +1,162 @@
+REDACTIFY MCP ARCHITECTURE - ASCII DIAGRAM
+=====================================================
+
+                    ┌─────────────────┐
+                    │   React Client  │
+                    │  (Port 5173)    │
+                    └─────────┬───────┘
+                              │ HTTP REST
+                              │ POST /anonymize
+                              ▼
+        ┌─────────────────────────────────────────────────────┐
+        │            MAIN FASTAPI SERVER (Port 8000)          │
+        │                                                     │
+        │  ┌─────────────────┐    ┌─────────────────────────┐ │
+        │  │  REST Gateway   │    │   MCP CLIENT MANAGER    │ │
+        │  │                 │    │                         │ │
+        │  │ • /anonymize    │◄──►│  • Connection Pool      │ │
+        │  │ • /health       │    │  • Load Balancing       │ │
+        │  │ • /mcp-status   │    │  • Health Monitoring    │ │
+        │  └─────────────────┘    └─────────────────────────┘ │
+        └─────────────────────────┬───────────────────────────┘
+                                  │ JSON-RPC 2.0 over HTTP
+                                  │ MCP Protocol
+                                  ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │                  MCP MICROSERVICES LAYER                    │
+    └─────────────────────────────────────────────────────────────┘
+
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│  General NER    │ │  Medical NER    │ │ Technical NER   │
+│  MCP Server     │ │  MCP Server     │ │  MCP Server     │
+│  Port 3001      │ │  Port 3002      │ │  Port 3003      │
+│                 │ │                 │ │                 │
+│ ┌─────────────┐ │ │ ┌─────────────┐ │ │ ┌─────────────┐ │
+│ │ FastMCP     │ │ │ │ FastMCP     │ │ │ │ FastMCP     │ │
+│ │ @mcp.tool() │ │ │ │ @mcp.tool() │ │ │ │ @mcp.tool() │ │
+│ │ predict()   │ │ │ │ predict()   │ │ │ │ predict()   │ │
+│ │ health()    │ │ │ │ health()    │ │ │ │ health()    │ │
+│ └─────────────┘ │ │ └─────────────┘ │ │ └─────────────┘ │
+│                 │ │                 │ │                 │
+│ ┌─────────────┐ │ │ ┌─────────────┐ │ │ ┌─────────────┐ │
+│ │BERT-CoNLL   │ │ │ │RoBERTa-i2b2 │ │ │ │Tech Domain  │ │
+│ │NER Model    │ │ │ │Medical Model│ │ │ │NER Model    │ │
+│ └─────────────┘ │ │ └─────────────┘ │ │ └─────────────┘ │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│  Legal NER      │ │ Financial NER   │ │PII Specialized  │
+│  MCP Server     │ │ MCP Server      │ │MCP Server       │
+│  Port 3004      │ │ Port 3005       │ │Port 3006        │
+│                 │ │                 │ │                 │
+│ ┌─────────────┐ │ │ ┌─────────────┐ │ │ ┌─────────────┐ │
+│ │ FastMCP     │ │ │ │ FastMCP     │ │ │ │ FastMCP     │ │
+│ │ @mcp.tool() │ │ │ │ @mcp.tool() │ │ │ │ @mcp.tool() │ │
+│ │ predict()   │ │ │ │ predict()   │ │ │ │ predict()   │ │
+│ │ health()    │ │ │ │ health()    │ │ │ │ health()    │ │
+│ └─────────────┘ │ │ └─────────────┘ │ │ └─────────────┘ │
+│                 │ │                 │ │                 │
+│ ┌─────────────┐ │ │ ┌─────────────┐ │ │ ┌─────────────┐ │
+│ │Legal Domain │ │ │ │Finance      │ │ │ │PII-Focused  │ │
+│ │NER Model    │ │ │ │Domain Model │ │ │ │NER Model    │ │
+│ └─────────────┘ │ │ └─────────────┘ │ │ └─────────────┘ │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+
+MCP PROTOCOL FLOW
+==================
+
+Step 1: Client Request
+┌─────────────────────────────────────────────────────────────┐
+│ POST /anonymize                                             │
+│ {                                                           │
+│   "text": "John Smith works at Acme Corp",                 │
+│   "options": {"PERSON": true, "ORGANIZATION": true}        │
+│ }                                                           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+Step 2: MCP Client Requests (Parallel)
+┌─────────────────────────────────────────────────────────────┐
+│ JSON-RPC 2.0 to each MCP Server:                           │
+│                                                             │
+│ {                                                           │
+│   "jsonrpc": "2.0",                                         │
+│   "method": "predict",                                      │
+│   "params": {                                               │
+│     "inputs": "John Smith works at Acme Corp",             │
+│     "parameters": {"confidence_threshold": 0.8}            │
+│   },                                                        │
+│   "id": "req-123"                                           │
+│ }                                                           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+Step 3: MCP Server Responses
+┌─────────────────────────────────────────────────────────────┐
+│ From General NER (3001):                                    │
+│ {                                                           │
+│   "jsonrpc": "2.0",                                         │
+│   "result": {                                               │
+│     "entities": [                                           │
+│       {                                                     │
+│         "entity_group": "PERSON",                           │
+│         "score": 0.9998,                                    │
+│         "word": "John Smith",                               │
+│         "start": 0, "end": 10,                              │
+│         "detector": "a2a_ner_general"                       │
+│       },                                                    │
+│       {                                                     │
+│         "entity_group": "ORG",                              │
+│         "score": 0.9995,                                    │
+│         "word": "Acme Corp",                                │
+│         "start": 20, "end": 29,                             │
+│         "detector": "a2a_ner_general"                       │
+│       }                                                     │
+│     ]                                                       │
+│   },                                                        │
+│   "id": "req-123"                                           │
+│ }                                                           │
+│                                                             │
+│ Similar responses from other MCP servers...                 │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+Step 4: Aggregated Response
+┌─────────────────────────────────────────────────────────────┐
+│ {                                                           │
+│   "anonymized_text": "[PERSON-611732] works at [ORG-445]"  │
+│ }                                                           │
+└─────────────────────────────────────────────────────────────┘
+
+KEY MCP COMPONENTS
+==================
+
+1. MCP SERVERS (True MCP Implementation)
+   • FastMCP framework with @mcp.tool() decorators
+   • JSON-RPC 2.0 compliant endpoints (/mcp)
+   • Standardized tool interface (predict, health_check)
+   • Domain-specific NER models
+
+2. MCP CLIENT (Main Server)
+   • MCPClientManager for connection pooling
+   • JSON-RPC 2.0 request/response handling
+   • Parallel requests to multiple servers
+   • Health monitoring and failover
+
+3. MCP PROTOCOL FEATURES
+   • JSON-RPC 2.0 over HTTP
+   • Tool-based architecture
+   • Standardized error handling
+   • Async/await support
+   • Connection management
+
+BENEFITS OF MCP ARCHITECTURE
+=============================
+
+✓ Modularity: Each model runs independently
+✓ Scalability: Scale individual services as needed  
+✓ Fault Tolerance: Graceful degradation if servers fail
+✓ Standardization: Consistent API across all services
+✓ Performance: Parallel processing across models
+✓ Maintainability: Clear separation of concerns
+✓ Extensibility: Easy to add new specialized models
