@@ -17,13 +17,24 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
 from dotenv import load_dotenv
+# subprocess import removed; auto_mcp_manager handles service startup
 
 # Import our new MCP components
 from detection_engine import get_detection_engine
 from anonymization_engine import get_anonymization_engine
 from mcp_client import MCPClientManager, MCPServerConfig
+# Model manager and auto MCP manager
 from model_manager import get_model_manager
+# Auto MCP manager import
 from auto_mcp_manager import get_auto_mcp_manager
+# Instantiate auto MCP manager
+auto_mcp_manager = get_auto_mcp_manager()
+
+# Initialize components
+detection_engine = get_detection_engine()
+anonymization_engine = get_anonymization_engine()
+model_manager = get_model_manager()
+mcp_client_manager: Optional[MCPClientManager] = None
 
 # Load environment variables
 load_dotenv()
@@ -34,22 +45,17 @@ logger = logging.getLogger("RedactifyServer")
 
 # Initialize FastAPI app
 app = FastAPI(title="Redactify Server", version="2.0")
+# Configure CORS for frontend development ports
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.environ.get("FRONT_END_URL", "http://localhost:5173")],
+    allow_origins=[
+        os.environ.get("FRONT_END_URL", "http://localhost:5173"),
+        "http://localhost:5174",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Initialize components
-detection_engine = get_detection_engine()
-anonymization_engine = get_anonymization_engine()
-model_manager = get_model_manager()
-auto_mcp_manager = get_auto_mcp_manager()
-mcp_client_manager: Optional[MCPClientManager] = None
-
-logger.info("=== Redactify Server v2.0 ===")
-logger.info("Using true MCP architecture with distributed services")
 
 @app.on_event("startup")
 async def startup_event():
@@ -58,18 +64,11 @@ async def startup_event():
     
     logger.info("=== Starting Redactify MCP System ===")
     
-    # Step 1: Automatically start all MCP servers
+    # Step 1: Automatically start MCP servers
     logger.info("Step 1: Starting MCP servers automatically...")
-    success = await auto_mcp_manager.start_all_servers(timeout=300.0)  # 5 minutes timeout
-    
+    success = await auto_mcp_manager.start_all_servers(timeout=300.0)
     if not success:
         logger.warning("Some MCP servers failed to start. System will work with available servers + Presidio/regex fallback.")
-        # Get status of what did start
-        status = auto_mcp_manager.get_server_status()
-        running_count = sum(1 for s in status.values() if s["running"])
-        logger.info(f"Running servers: {running_count}/{len(status)}")
-    else:
-        logger.info("✓ All MCP servers started successfully")
     
     # Step 2: Create MCP client manager
     logger.info("Step 2: Initializing MCP client connections...")
@@ -97,13 +96,10 @@ async def startup_event():
     logger.info("✓ Server startup complete")
     logger.info("=== Redactify MCP System Ready ===")
     
-    # Start monitoring MCP servers (only if servers started successfully)
-    if success:
-        try:
-            auto_mcp_manager.monitoring_task = asyncio.create_task(auto_mcp_manager.start_monitoring())
-            logger.info("✓ MCP server monitoring started")
-        except Exception as e:
-            logger.warning(f"Failed to start MCP monitoring: {e}")
+    # (Optional) health monitoring can be added here
+    # Step 4: Start monitoring MCP servers
+    auto_mcp_manager.monitoring_task = asyncio.create_task(auto_mcp_manager.start_monitoring())
+    logger.info("✓ MCP server monitoring started")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -118,11 +114,10 @@ async def shutdown_event():
         await mcp_client_manager.__aexit__(None, None, None)
         logger.info("✓ MCP client connections closed")
     
-    # Shutdown all MCP servers
+    # Shutdown MCP microservices
     logger.info("Shutting down MCP servers...")
     await auto_mcp_manager.shutdown_all_servers()
     logger.info("✓ All MCP servers stopped")
-    
     logger.info("=== Shutdown Complete ===")
 
 @app.get("/")
