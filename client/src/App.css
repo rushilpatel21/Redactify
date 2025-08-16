@@ -748,6 +748,7 @@ TRUE MCP Styles */
   border: var(--border);
   border-radius: 8px;
   background: var(--input-bg);
+  color: var(--text-primary);
   font-family: inherit;
   font-size: 14px;
   resize: none;
@@ -762,6 +763,7 @@ TRUE MCP Styles */
 
 .user-request-input {
   font-weight: 500;
+  color: var(--text-primary);
 }
 
 /* Execution Plan Styles */

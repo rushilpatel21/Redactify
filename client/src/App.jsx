@@ -220,7 +220,7 @@ function App() {
                     onChange={(e) => setUseTrueMCP(e.target.checked)}
                   />
                   <span className="mcp-toggle-label">
-                    🤖 Use TRUE MCP (LLM-Driven Tool Selection)
+                    Use TRUE MCP (LLM-Driven Tool Selection)
                   </span>
                 </label>
                 <p className="mcp-description">
@@ -302,7 +302,7 @@ function App() {
               {useTrueMCP && executionPlan && (
                 <div className="execution-plan-box">
                   <div className="text-box-header">
-                    <label>🧠 LLM Execution Plan</label>
+                    <label>LLM Execution Plan</label>
                   </div>
                   <div className="execution-plan-content">
                     <div className="plan-summary">
