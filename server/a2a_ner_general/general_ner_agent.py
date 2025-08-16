@@ -188,11 +188,39 @@ async def pseudonymize_entities(inputs: str, parameters: Optional[Dict[str, Any]
         # Sort entities by start position (reverse order to maintain positions)
         sorted_entities = sorted(entities, key=lambda x: x.get('start', 0), reverse=True)
         
+        # Remove overlapping entities (keep the longest/highest confidence ones)
+        filtered_entities = []
+        for entity in sorted_entities:
+            start = entity.get('start', 0)
+            end = entity.get('end', 0)
+            
+            # Check if this entity overlaps with any already processed entity
+            overlaps = False
+            for existing in filtered_entities:
+                existing_start = existing.get('start', 0)
+                existing_end = existing.get('end', 0)
+                
+                # Check for overlap
+                if not (end <= existing_start or start >= existing_end):
+                    # There's an overlap, keep the one with higher confidence or longer span
+                    if (entity.get('score', 0) > existing.get('score', 0) or 
+                        (end - start) > (existing_end - existing_start)):
+                        # Remove the existing entity and add this one
+                        filtered_entities.remove(existing)
+                        break
+                    else:
+                        # Keep the existing entity, skip this one
+                        overlaps = True
+                        break
+            
+            if not overlaps:
+                filtered_entities.append(entity)
+        
         anonymized_text = text
         entities_processed = 0
         pseudonym_map = {}
         
-        for entity in sorted_entities:
+        for entity in filtered_entities:
             start = entity.get('start')
             end = entity.get('end')
             entity_type = entity.get('entity_group', 'UNKNOWN').upper()
@@ -213,18 +241,21 @@ async def pseudonymize_entities(inputs: str, parameters: Optional[Dict[str, Any]
             if actual_text in pseudonym_map:
                 pseudonym = pseudonym_map[actual_text]
             else:
+                # Map entity types to more readable names
+                readable_type = _get_readable_entity_type(entity_type)
+                
                 if strategy == "hash":
-                    # Create hash-based pseudonym
-                    hash_obj = hashlib.md5(actual_text.encode()).hexdigest()[:6]
-                    pseudonym = f"[{entity_type}-{hash_obj.upper()}]"
+                    # Create hash-based pseudonym with shorter, cleaner format
+                    hash_obj = hashlib.md5(actual_text.encode()).hexdigest()[:4]
+                    pseudonym = f"[{readable_type}_{hash_obj.upper()}]"
                 elif strategy == "sequential":
                     # Sequential numbering per entity type
-                    type_count = len([p for p in pseudonym_map.values() if entity_type in p]) + 1
-                    pseudonym = f"[{entity_type}-{type_count:03d}]"
+                    type_count = len([p for p in pseudonym_map.values() if readable_type in p]) + 1
+                    pseudonym = f"[{readable_type}_{type_count:02d}]"
                 else:  # random
                     import random
-                    rand_id = random.randint(100000, 999999)
-                    pseudonym = f"[{entity_type}-{rand_id}]"
+                    rand_id = random.randint(1000, 9999)
+                    pseudonym = f"[{readable_type}_{rand_id}]"
                 
                 pseudonym_map[actual_text] = pseudonym
             
@@ -602,6 +633,35 @@ async def merge_overlapping_entities(inputs: str, parameters: Optional[Dict[str,
             "error": str(e),
             "tool_used": "merge_overlapping_entities"
         }
+
+def _get_readable_entity_type(entity_type: str) -> str:
+    """Convert entity type to more readable format"""
+    type_mapping = {
+        'PER': 'PERSON',
+        'PERSON': 'PERSON',
+        'ORG': 'ORG',
+        'ORGANIZATION': 'ORG', 
+        'LOC': 'LOCATION',
+        'LOCATION': 'LOCATION',
+        'MISC': 'MISC',
+        'EMAIL': 'EMAIL',
+        'EMAIL_ADDRESS': 'EMAIL',
+        'PHONE': 'PHONE',
+        'PHONE_NUMBER': 'PHONE',
+        'SSN': 'SSN',
+        'CREDIT_CARD': 'CARD',
+        'ID_NUM': 'ID',
+        'NAME_STUDENT': 'NAME',
+        'PATIENT': 'PATIENT',
+        'STAFF': 'STAFF',
+        'HOSP': 'HOSPITAL',
+        # Skip sentiment types
+        'POSITIVE': 'WORD',
+        'NEGATIVE': 'WORD', 
+        'NEUTRAL': 'WORD'
+    }
+    
+    return type_mapping.get(entity_type.upper(), entity_type.upper())
 
 def _merge_entity_group(entities: List[Dict], strategy: str, text: str) -> Dict:
     """Helper method to merge a group of overlapping entities"""

@@ -267,9 +267,9 @@ RESPONSE FORMAT (JSON):
 }}
 
 GUIDELINES:
-- Conservative: High confidence thresholds, fewer tools, focus on precision
-- Balanced: Moderate thresholds, comprehensive detection, good balance  
-- Aggressive: Lower thresholds, all relevant tools, focus on recall
+- Conservative: High confidence thresholds (0.8+), fewer tools, focus on precision
+- Balanced: Moderate thresholds (0.6-0.7), comprehensive detection, good balance  
+- Aggressive: Standard thresholds (0.5-0.6), all relevant tools, focus on recall but avoid noise
 
 WORKFLOW STEPS:
 1. ANALYZE: Start with classify_document_type and/or assess_sensitivity_level if uncertain

@@ -391,9 +391,24 @@ class DetectionEngine:
                 if entity.get('score', 0) < min_confidence:
                     continue
                 
-                # Filter out generic labels for specific models
+                # Filter out unwanted entity types
                 entity_type = entity.get('entity_group', '').upper()
-                if model_name in ['legal', 'financial'] and self._is_generic_label(entity_type):
+                
+                # Skip sentiment analysis results from financial model
+                if model_name == 'a2a_ner_financial' and entity_type in ['POSITIVE', 'NEGATIVE', 'NEUTRAL']:
+                    continue
+                
+                # Skip very short entities (likely noise)
+                entity_text = entity.get('word', '')
+                if len(entity_text.strip()) < 2:
+                    continue
+                
+                # Skip common words that aren't actually PII
+                if self._is_common_word(entity_text):
+                    continue
+                
+                # Filter out generic labels for specific models
+                if model_name in ['a2a_ner_legal', 'a2a_ner_financial'] and self._is_generic_label(entity_type):
                     continue
                 
                 # Add detector information
@@ -411,14 +426,53 @@ class DetectionEngine:
     def _get_model_confidence_threshold(self, model_name: str) -> float:
         """Get confidence threshold for specific model"""
         model_thresholds = {
-            'legal': self.config.get('legal_model_threshold', 0.8),
-            'financial': self.config.get('financial_model_threshold', 0.7),
-            'general': 0.5,
-            'medical': 0.6,
-            'technical': 0.6,
-            'pii_specialized': 0.5
+            'a2a_ner_legal': self.config.get('legal_model_threshold', 0.8),
+            'a2a_ner_financial': self.config.get('financial_model_threshold', 0.8),  # Higher threshold
+            'a2a_ner_general': 0.7,  # Higher threshold
+            'a2a_ner_medical': 0.7,  # Higher threshold
+            'a2a_ner_technical': 0.7,  # Higher threshold
+            'a2a_ner_pii_specialized': 0.6
         }
         return model_thresholds.get(model_name, self.config.get('entity_confidence_threshold', 0.3))
+    
+    def _is_common_word(self, text: str) -> bool:
+        """Check if text is a common word that shouldn't be anonymized"""
+        if not text:
+            return True
+            
+        text_lower = text.lower().strip()
+        
+        # Skip very common words
+        common_words = {
+            'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+            'from', 'up', 'about', 'into', 'through', 'during', 'before', 'after',
+            'above', 'below', 'between', 'among', 'is', 'are', 'was', 'were', 'be',
+            'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+            'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these',
+            'those', 'a', 'an', 'as', 'if', 'each', 'which', 'who', 'when', 'where',
+            'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other',
+            'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than',
+            'too', 'very', 'just', 'now', 'here', 'there', 'then', 'them', 'they',
+            'their', 'what', 'your', 'our', 'out', 'many', 'time', 'way', 'well',
+            'work', 'life', 'day', 'get', 'use', 'man', 'new', 'now', 'old', 'see',
+            'him', 'two', 'how', 'its', 'said', 'each', 'make', 'most', 'over',
+            'think', 'also', 'back', 'after', 'first', 'well', 'way', 'even', 'new',
+            'want', 'because', 'any', 'these', 'give', 'day', 'us', 'good', 'water'
+        }
+        
+        # Skip single characters and numbers
+        if len(text_lower) <= 1 or text_lower.isdigit():
+            return True
+            
+        # Skip common words
+        if text_lower in common_words:
+            return True
+            
+        # Skip common punctuation combinations
+        if text_lower in ['.', ',', ':', ';', '!', '?', '-', '_', '(', ')', '[', ']', '{', '}']:
+            return True
+            
+        return False
     
     def _is_generic_label(self, entity_type: str) -> bool:
         """Check if entity type is a generic/meaningless label"""
