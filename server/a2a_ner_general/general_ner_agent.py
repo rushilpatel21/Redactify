@@ -3,6 +3,8 @@ import logging
 import time
 import uuid
 import json
+import re
+import hashlib
 from mcp.server.fastmcp import FastMCP
 from typing import List, Any, Dict, Optional
 from transformers import pipeline
@@ -182,59 +184,95 @@ async def pseudonymize_entities(inputs: str, parameters: Optional[Dict[str, Any]
         logger.warning(f"[{AGENT_ID}][{request_id}] Empty text or entities, returning original")
         return {"anonymized_text": text, "entities_processed": 0}
     
-    logger.info(f"[{AGENT_ID}][{request_id}] Pseudonymizing {len(entities)} entities using {strategy} strategy")
-    
     try:
-        # Sort entities by start position (reverse order to maintain positions)
-        sorted_entities = sorted(entities, key=lambda x: x.get('start', 0), reverse=True)
+        logger.info(f"[{AGENT_ID}][{request_id}] Pseudonymizing {len(entities)} entities using {strategy} strategy")
         
-        # Remove overlapping entities (keep the longest/highest confidence ones)
-        filtered_entities = []
+        # Filter out sentiment entities and invalid entities BEFORE processing
+        valid_entities = []
+        sentiment_types = {'POSITIVE', 'NEGATIVE', 'NEUTRAL', 'positive', 'negative', 'neutral'}
+        
+        for entity in entities:
+            entity_type = entity.get('entity_group', '').upper()
+            start = entity.get('start')
+            end = entity.get('end')
+            
+            # Skip sentiment entities
+            if entity_type in sentiment_types:
+                continue
+                
+            # Skip invalid positions
+            if start is None or end is None or start >= end:
+                continue
+                
+            # Skip out-of-bounds entities
+            if not (0 <= start < len(text) and start < end <= len(text)):
+                continue
+                
+            valid_entities.append(entity)
+        
+        logger.info(f"[{AGENT_ID}][{request_id}] Pseudonymizing {len(valid_entities)} entities (filtered from {len(entities)}) using {strategy} strategy")
+        
+        if not valid_entities:
+            logger.info(f"[{AGENT_ID}][{request_id}] No valid entities to pseudonymize after filtering")
+            return {"anonymized_text": text, "entities_processed": 0}
+        
+        # Limit entities to prevent overwhelming the system
+        MAX_ENTITIES = 50  # Reasonable limit to prevent corruption
+        if len(valid_entities) > MAX_ENTITIES:
+            logger.warning(f"[{AGENT_ID}][{request_id}] Too many entities ({len(valid_entities)}), limiting to {MAX_ENTITIES} highest confidence ones")
+            # Sort by confidence and take top entities
+            valid_entities = sorted(valid_entities, key=lambda x: x.get('score', 0), reverse=True)[:MAX_ENTITIES]
+        
+        # Sort entities by start position (forward order, process left to right)
+        sorted_entities = sorted(valid_entities, key=lambda x: x.get('start', 0))
+        
+        # ROBUST overlap detection - create a comprehensive conflict-free entity list
+        final_entities = []
+        position_map = set()  # Track all occupied positions
+        
         for entity in sorted_entities:
             start = entity.get('start', 0)
             end = entity.get('end', 0)
             
-            # Check if this entity overlaps with any already processed entity
-            overlaps = False
-            for existing in filtered_entities:
-                existing_start = existing.get('start', 0)
-                existing_end = existing.get('end', 0)
-                
-                # Check for overlap
-                if not (end <= existing_start or start >= existing_end):
-                    # There's an overlap, keep the one with higher confidence or longer span
-                    if (entity.get('score', 0) > existing.get('score', 0) or 
-                        (end - start) > (existing_end - existing_start)):
-                        # Remove the existing entity and add this one
-                        filtered_entities.remove(existing)
-                        break
-                    else:
-                        # Keep the existing entity, skip this one
-                        overlaps = True
-                        break
+            # Check if any position in this entity range is already occupied
+            entity_positions = set(range(start, end))
+            if entity_positions & position_map:  # If there's any intersection
+                logger.warning(f"[{AGENT_ID}][{request_id}] Skipping overlapping entity at {start}-{end} (conflicts with existing positions)")
+                continue
             
-            if not overlaps:
-                filtered_entities.append(entity)
+            # This entity doesn't conflict, add it and mark positions as occupied
+            final_entities.append(entity)
+            position_map.update(entity_positions)
+        
+        logger.info(f"[{AGENT_ID}][{request_id}] Final entity list: {len(final_entities)} entities after overlap removal")
+        
+        if not final_entities:
+            logger.info(f"[{AGENT_ID}][{request_id}] No entities remaining after overlap detection")
+            return {"anonymized_text": text, "entities_processed": 0}
+        
+        # SAFE text replacement using string segments approach
+        # Sort by position DESC to process from end to start (preserves earlier positions)
+        replacement_entities = sorted(final_entities, key=lambda x: x.get('start', 0), reverse=True)
         
         anonymized_text = text
         entities_processed = 0
         pseudonym_map = {}
         
-        for entity in filtered_entities:
+        for entity in replacement_entities:
             start = entity.get('start')
             end = entity.get('end')
             entity_type = entity.get('entity_group', 'UNKNOWN').upper()
-            original_text = entity.get('word', '')
             
-            if start is None or end is None:
-                logger.warning(f"[{AGENT_ID}][{request_id}] Entity missing position info, skipping")
+            # Final bounds check with original text
+            if not (0 <= start < len(text) and start < end <= len(text)):
+                logger.warning(f"[{AGENT_ID}][{request_id}] Entity bounds {start}-{end} invalid for text length {len(text)}, skipping")
                 continue
             
-            # Extract actual text from positions (more reliable than 'word' field)
-            if 0 <= start < len(text) and start < end <= len(text):
-                actual_text = text[start:end]
-            else:
-                logger.warning(f"[{AGENT_ID}][{request_id}] Invalid entity positions, skipping")
+            # Extract original text (from original, not modified text)
+            actual_text = text[start:end]
+            
+            # Skip if empty or whitespace only
+            if not actual_text.strip():
                 continue
             
             # Generate pseudonym
@@ -259,14 +297,20 @@ async def pseudonymize_entities(inputs: str, parameters: Optional[Dict[str, Any]
                 
                 pseudonym_map[actual_text] = pseudonym
             
-            # Replace in text
+            # Safe replacement: rebuild string with segments
             anonymized_text = anonymized_text[:start] + pseudonym + anonymized_text[end:]
             entities_processed += 1
             
-            logger.debug(f"[{AGENT_ID}][{request_id}] Replaced '{actual_text}' with '{pseudonym}'")
+            logger.debug(f"[{AGENT_ID}][{request_id}] Replaced '{actual_text}' with '{pseudonym}' at position {start}-{end}")
         
         logger.info(f"[{AGENT_ID}][{request_id}] Successfully pseudonymized {entities_processed} entities")
         logger.info(f"[{AGENT_ID}][{request_id}] EXIT: pseudonymize_entities function completed")
+        
+        # Clean up any formatting issues
+        if entities_processed > 0:
+            # Remove extra spaces around punctuation
+            anonymized_text = re.sub(r'\s+', ' ', anonymized_text)
+            anonymized_text = re.sub(r'\s+([,.!?;:])', r'\1', anonymized_text)
         
         return {
             "anonymized_text": anonymized_text,
@@ -454,11 +498,38 @@ async def redact_entities(inputs: str, parameters: Optional[Dict[str, Any]] = No
         logger.warning(f"[{AGENT_ID}][{request_id}] Empty text or entities, returning original")
         return {"anonymized_text": text, "entities_processed": 0}
     
-    logger.info(f"[{AGENT_ID}][{request_id}] Redacting {len(entities)} entities using {redaction_style} style")
+    # Filter out sentiment entities and invalid entities
+    valid_entities = []
+    sentiment_types = {'POSITIVE', 'NEGATIVE', 'NEUTRAL', 'positive', 'negative', 'neutral'}
+    
+    for entity in entities:
+        entity_type = entity.get('entity_group', '').upper()
+        start = entity.get('start')
+        end = entity.get('end')
+        
+        # Skip sentiment entities
+        if entity_type in sentiment_types:
+            continue
+            
+        # Skip invalid positions
+        if start is None or end is None or start >= end:
+            continue
+            
+        # Skip out-of-bounds entities
+        if not (0 <= start < len(text) and start < end <= len(text)):
+            continue
+            
+        valid_entities.append(entity)
+    
+    logger.info(f"[{AGENT_ID}][{request_id}] Redacting {len(valid_entities)} entities (filtered from {len(entities)}) using {redaction_style} style")
+    
+    if not valid_entities:
+        logger.info(f"[{AGENT_ID}][{request_id}] No valid entities to redact after filtering")
+        return {"anonymized_text": text, "entities_processed": 0}
     
     try:
-        # Sort entities by start position (reverse order)
-        sorted_entities = sorted(entities, key=lambda x: x.get('start', 0), reverse=True)
+        # Sort entities by start position (reverse order to maintain indices)
+        sorted_entities = sorted(valid_entities, key=lambda x: x.get('start', 0), reverse=True)
         
         anonymized_text = text
         entities_processed = 0
@@ -466,15 +537,14 @@ async def redact_entities(inputs: str, parameters: Optional[Dict[str, Any]] = No
         for entity in sorted_entities:
             start = entity.get('start')
             end = entity.get('end')
-            entity_type = entity.get('entity_group', 'UNKNOWN').upper()
+            entity_type = _get_readable_entity_type(entity.get('entity_group', 'UNKNOWN'))
             
-            if start is None or end is None or start >= end:
+            # Double-check bounds after previous replacements
+            if start >= len(anonymized_text) or end > len(anonymized_text):
+                logger.warning(f"[{AGENT_ID}][{request_id}] Entity bounds out of range after previous redactions, skipping")
                 continue
             
-            if not (0 <= start < len(text) and start < end <= len(text)):
-                continue
-            
-            original_text = text[start:end]
+            original_text = text[start:end]  # Use original text for logging
             
             # Apply redaction based on style
             if redaction_style == "remove":
@@ -489,7 +559,7 @@ async def redact_entities(inputs: str, parameters: Optional[Dict[str, Any]] = No
             else:
                 replacement = "[REDACTED]"
             
-            # Replace in text
+            # Replace in text (using current anonymized_text bounds)
             anonymized_text = anonymized_text[:start] + replacement + anonymized_text[end:]
             entities_processed += 1
             
@@ -554,11 +624,38 @@ async def merge_overlapping_entities(inputs: str, parameters: Optional[Dict[str,
         logger.warning(f"[{AGENT_ID}][{request_id}] No entities provided, returning empty list")
         return {"entities": [], "merges_performed": 0}
     
-    logger.info(f"[{AGENT_ID}][{request_id}] Merging {len(entities)} entities using {merge_strategy} strategy")
+    # Filter out sentiment entities and invalid entities before merging
+    valid_entities = []
+    sentiment_types = {'POSITIVE', 'NEGATIVE', 'NEUTRAL', 'positive', 'negative', 'neutral'}
+    
+    for entity in entities:
+        entity_type = entity.get('entity_group', '').upper()
+        start = entity.get('start')
+        end = entity.get('end')
+        
+        # Skip sentiment entities
+        if entity_type in sentiment_types:
+            continue
+            
+        # Skip invalid positions
+        if start is None or end is None or start >= end:
+            continue
+            
+        # Skip out-of-bounds entities
+        if text and not (0 <= start < len(text) and start < end <= len(text)):
+            continue
+            
+        valid_entities.append(entity)
+    
+    logger.info(f"[{AGENT_ID}][{request_id}] Merging {len(valid_entities)} entities (filtered from {len(entities)}) using {merge_strategy} strategy")
+    
+    if not valid_entities:
+        logger.info(f"[{AGENT_ID}][{request_id}] No valid entities to merge after filtering")
+        return {"entities": [], "merges_performed": 0}
     
     try:
         # Sort entities by start position
-        sorted_entities = sorted(entities, key=lambda x: x.get('start', 0))
+        sorted_entities = sorted(valid_entities, key=lambda x: x.get('start', 0))
         merged_entities = []
         merges_performed = 0
         
@@ -611,7 +708,7 @@ async def merge_overlapping_entities(inputs: str, parameters: Optional[Dict[str,
             # Move to next non-overlapping entity
             i += len(overlapping)
         
-        logger.info(f"[{AGENT_ID}][{request_id}] Completed merging: {len(entities)} -> {len(merged_entities)} entities")
+        logger.info(f"[{AGENT_ID}][{request_id}] Completed merging: {len(valid_entities)} -> {len(merged_entities)} entities")
         logger.info(f"[{AGENT_ID}][{request_id}] EXIT: merge_overlapping_entities function completed")
         
         return {
@@ -626,9 +723,9 @@ async def merge_overlapping_entities(inputs: str, parameters: Optional[Dict[str,
     except Exception as e:
         logger.error(f"[{AGENT_ID}][{request_id}] Error in entity merging: {e}", exc_info=True)
         return {
-            "entities": entities,  # Return original entities on error
+            "entities": valid_entities,  # Return filtered entities on error
             "original_count": len(entities),
-            "merged_count": len(entities),
+            "merged_count": len(valid_entities),
             "merges_performed": 0,
             "error": str(e),
             "tool_used": "merge_overlapping_entities"
@@ -655,13 +752,29 @@ def _get_readable_entity_type(entity_type: str) -> str:
         'PATIENT': 'PATIENT',
         'STAFF': 'STAFF',
         'HOSP': 'HOSPITAL',
-        # Skip sentiment types
+        'PATORG': 'ORG',
+        # Medical entities
+        'DOCTOR': 'DOCTOR',
+        'AGE': 'AGE',
+        'DATE': 'DATE',
+        # Financial entities  
+        'FINANCIAL': 'FINANCIAL',
+        # Legal entities
+        'LABEL_0': 'ENTITY',
+        'LABEL_1': 'ENTITY',
+        # Skip sentiment types - these should be filtered out before this function
         'POSITIVE': 'WORD',
         'NEGATIVE': 'WORD', 
         'NEUTRAL': 'WORD'
     }
     
-    return type_mapping.get(entity_type.upper(), entity_type.upper())
+    cleaned_type = type_mapping.get(entity_type.upper(), entity_type.upper())
+    
+    # Additional cleanup for any remaining sentiment or weird types
+    if cleaned_type in ['POSITIVE', 'NEGATIVE', 'NEUTRAL', 'WORD']:
+        return 'ENTITY'
+    
+    return cleaned_type
 
 def _merge_entity_group(entities: List[Dict], strategy: str, text: str) -> Dict:
     """Helper method to merge a group of overlapping entities"""

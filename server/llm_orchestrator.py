@@ -390,13 +390,14 @@ Create your execution plan:
                         context["current_text"] = current_text
                         
                     elif "merged_count" in result:
-                        # Entity merging result
-                        all_entities = result["entities"]
+                        # Entity merging result - REPLACE all_entities with merged result, don't accumulate
+                        all_entities = result["entities"]  # Use merged entities as the new baseline
                         execution_results[-1]["entities_merged"] = result.get("merges_performed", 0)
                         execution_results[-1]["final_count"] = result.get("merged_count", 0)
                         
-                        # Update context with merged entities
+                        # Update context with merged entities (replacing previous entities)
                         context["detected_entities"] = all_entities
+                        logger.info(f"Updated context with {len(all_entities)} merged entities (was {len(context.get('detected_entities', []))} before merge)")
                     
                     # Store additional result info
                     for key in ["document_type", "sensitivity_level", "classifications"]:
