@@ -51,7 +51,21 @@ logger.info(f"[{AGENT_ID}] FastMCP initialized")
 # --- MCP Tools ---
 @mcp.tool()
 async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Detect medical named entities in text."""
+    """
+    Detect medical entities and PHI using specialized medical NER model.
+    
+    Specializes in:
+    - Patient names and identifiers
+    - Medical conditions and diagnoses  
+    - Treatment information
+    - Healthcare provider names
+    - Medical dates and locations
+    - Protected Health Information (PHI)
+    
+    Best used for: Medical records, clinical notes, healthcare documents
+    Model: RoBERTa trained on i2b2 medical data
+    Confidence range: 0.0-1.0 (typically 0.6+ for medical entities)
+    """
     import asyncio
     import concurrent.futures
     

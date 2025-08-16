@@ -56,12 +56,15 @@ const Toast = Swal.mixin({
 function App() {
   const [inputText, setInputText] = useState("");
   const [outputText, setOutputText] = useState("");
+  const [userRequest, setUserRequest] = useState("Anonymize this text completely");
   const [options, setOptions] = useState(
     piiTypes.reduce((acc, type) => ({ ...acc, [type.id]: true }), {})
   );
   const [fullRedaction, setFullRedaction] = useState(true);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [useTrueMCP, setUseTrueMCP] = useState(true);
+  const [executionPlan, setExecutionPlan] = useState(null);
 
   const handleOptionChange = (e) => {
     const { name, checked } = e.target;
@@ -80,27 +83,51 @@ function App() {
     }
     
     setLoading(true);
+    setExecutionPlan(null);
+    
     try {
-      const response = await fetch(`${BASE_URL}/anonymize`, {
+      // Choose endpoint based on TRUE MCP toggle
+      const endpoint = useTrueMCP ? '/anonymize_llm' : '/anonymize';
+      
+      // Prepare request body based on endpoint
+      const requestBody = useTrueMCP ? {
+        user_request: userRequest,
+        text: inputText,
+        options: options
+      } : {
+        text: inputText,
+        options: options,
+        full_redaction: fullRedaction
+      };
+      
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          text: inputText,
-          options: options,
-          full_redaction: fullRedaction
-        })
+        body: JSON.stringify(requestBody)
       });
+      
       const data = await response.json();
+      
       if (data.anonymized_text) {
         setOutputText(data.anonymized_text);
+        
+        // Store execution plan for TRUE MCP
+        if (useTrueMCP && data.execution_plan) {
+          setExecutionPlan(data.execution_plan);
+        }
+        
+        const processingTime = data.total_processing_time || data.processing_time || 0;
+        const method = data.orchestration_method || 'standard';
+        
         Toast.fire({
           icon: 'success',
-          title: 'Text anonymized successfully',
+          title: `Text anonymized successfully (${processingTime.toFixed(2)}s, ${method})`,
+          timer: 4000
         });
       } else {
-        setOutputText("Error: " + data.error);
+        setOutputText("Error: " + (data.error || 'Unknown error'));
         Toast.fire({
           icon: 'error',
           title: data.error || 'Something went wrong',
@@ -149,6 +176,8 @@ function App() {
   const clearForm = () => {
     setInputText("");
     setOutputText("");
+    setExecutionPlan(null);
+    setUserRequest("Anonymize this text completely");
   };
 
   return (
@@ -182,6 +211,46 @@ function App() {
         >
           <form onSubmit={handleSubmit}>
             <section className="text-sections">
+              {/* TRUE MCP Toggle */}
+              <div className="mcp-toggle-section">
+                <label className="mcp-toggle">
+                  <input
+                    type="checkbox"
+                    checked={useTrueMCP}
+                    onChange={(e) => setUseTrueMCP(e.target.checked)}
+                  />
+                  <span className="mcp-toggle-label">
+                    🤖 Use TRUE MCP (LLM-Driven Tool Selection)
+                  </span>
+                </label>
+                <p className="mcp-description">
+                  {useTrueMCP 
+                    ? "LLM will intelligently select tools and strategies based on your request"
+                    : "Uses traditional hardcoded anonymization logic"
+                  }
+                </p>
+              </div>
+
+              {/* User Request Input (only for TRUE MCP) */}
+              {useTrueMCP && (
+                <div className="text-box">
+                  <div className="text-box-header">
+                    <label htmlFor="userRequest">Your Request (for LLM)</label>
+                  </div>
+                  <input
+                    id="userRequest"
+                    type="text"
+                    value={userRequest}
+                    onChange={(e) => setUserRequest(e.target.value)}
+                    placeholder="e.g., 'Anonymize this medical record completely' or 'Partially mask this business email'"
+                    className="text-input user-request-input"
+                  />
+                  <div className="text-meta">
+                    <span>This tells the LLM what you want to achieve</span>
+                  </div>
+                </div>
+              )}
+
               <div className="text-box">
                 <div className="text-box-header">
                   <label htmlFor="inputText">Input Text</label>
@@ -228,6 +297,35 @@ function App() {
                   <span>{outputText.length} characters</span>
                 </div>
               </div>
+
+              {/* LLM Execution Plan (only for TRUE MCP) */}
+              {useTrueMCP && executionPlan && (
+                <div className="execution-plan-box">
+                  <div className="text-box-header">
+                    <label>🧠 LLM Execution Plan</label>
+                  </div>
+                  <div className="execution-plan-content">
+                    <div className="plan-summary">
+                      <span className="plan-strategy">Strategy: {executionPlan.strategy}</span>
+                      <span className="plan-confidence">Confidence: {(executionPlan.llm_confidence * 100).toFixed(0)}%</span>
+                    </div>
+                    <div className="plan-reasoning">
+                      <strong>LLM Reasoning:</strong>
+                      <p>{executionPlan.llm_reasoning}</p>
+                    </div>
+                    <div className="plan-tools">
+                      <strong>Tools Selected:</strong>
+                      <ul>
+                        {executionPlan.tool_calls?.map((tool, index) => (
+                          <li key={index}>
+                            <strong>{tool.tool}:</strong> {tool.reasoning}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
 
             <motion.section 
@@ -236,30 +334,34 @@ function App() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4, duration: 0.5 }}
             >
-              <h3 className="section-title">Redaction Options</h3>
+              <h3 className="section-title">
+                {useTrueMCP ? "Options (LLM will decide final strategy)" : "Redaction Options"}
+              </h3>
               
-              <div className="redaction-toggle">
-                <label className={`option-pill ${fullRedaction ? 'active' : ''}`}>
-                  <input
-                    type="radio"
-                    name="redactionMode"
-                    value="full"
-                    checked={fullRedaction === true}
-                    onChange={() => setFullRedaction(true)}
-                  />
-                  <span>Full Redaction</span>
-                </label>
-                <label className={`option-pill ${!fullRedaction ? 'active' : ''}`}>
-                  <input
-                    type="radio"
-                    name="redactionMode"
-                    value="partial"
-                    checked={fullRedaction === false}
-                    onChange={() => setFullRedaction(false)}
-                  />
-                  <span>Partial Redaction</span>
-                </label>
-              </div>
+              {!useTrueMCP && (
+                <div className="redaction-toggle">
+                  <label className={`option-pill ${fullRedaction ? 'active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="redactionMode"
+                      value="full"
+                      checked={fullRedaction === true}
+                      onChange={() => setFullRedaction(true)}
+                    />
+                    <span>Full Redaction</span>
+                  </label>
+                  <label className={`option-pill ${!fullRedaction ? 'active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="redactionMode"
+                      value="partial"
+                      checked={fullRedaction === false}
+                      onChange={() => setFullRedaction(false)}
+                    />
+                    <span>Partial Redaction</span>
+                  </label>
+                </div>
+              )}
               
               <div className="pii-options">
                 <div className="pii-header">

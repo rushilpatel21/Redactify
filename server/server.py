@@ -27,6 +27,8 @@ from mcp_client import MCPClientManager, MCPServerConfig
 from model_manager import get_model_manager
 # Auto MCP manager import
 from auto_mcp_manager import get_auto_mcp_manager
+# LLM Orchestrator for TRUE MCP implementation
+from llm_orchestrator import LLMOrchestrator
 # Instantiate auto MCP manager
 auto_mcp_manager = get_auto_mcp_manager()
 
@@ -35,6 +37,7 @@ detection_engine = get_detection_engine()
 anonymization_engine = get_anonymization_engine()
 model_manager = get_model_manager()
 mcp_client_manager: Optional[MCPClientManager] = None
+llm_orchestrator: Optional[LLMOrchestrator] = None
 
 # Load environment variables
 load_dotenv()
@@ -75,21 +78,27 @@ async def startup_event():
     mcp_client_manager = MCPClientManager()
     await mcp_client_manager.__aenter__()
     
-    # Add MCP server configurations for 3 essential servers only
+    # Add MCP server configurations for TRUE MCP implementation
     mcp_servers = [
-        MCPServerConfig("general", port=3001),
-        MCPServerConfig("medical", port=3002),
-        MCPServerConfig("pii_specialized", port=3006),
-        # Disabled for testing:
-        # MCPServerConfig("technical", port=3003),
-        # MCPServerConfig("legal", port=3004),
-        # MCPServerConfig("financial", port=3005),
+        MCPServerConfig("a2a_ner_general", port=3001),
+        MCPServerConfig("a2a_ner_medical", port=3002),
+        MCPServerConfig("a2a_ner_technical", port=3003),
+        MCPServerConfig("a2a_ner_legal", port=3004),
+        MCPServerConfig("a2a_ner_financial", port=3005),
+        MCPServerConfig("a2a_ner_pii_specialized", port=3006),
+        MCPServerConfig("mcp_classifier", port=3007),  # Enhanced classifier with new tools
     ]
     
     for server_config in mcp_servers:
         mcp_client_manager.add_server(server_config)
     
-    # Step 3: Update detection engine to use MCP clients
+    # Step 3: Initialize LLM Orchestrator for TRUE MCP implementation
+    logger.info("Step 3: Initializing LLM Orchestrator...")
+    global llm_orchestrator
+    llm_orchestrator = LLMOrchestrator(mcp_client_manager)
+    logger.info("✓ LLM Orchestrator initialized with MCP client manager")
+    
+    # Step 4: Update detection engine to use MCP clients
     detection_engine.set_mcp_client_manager(mcp_client_manager)
     
     logger.info("✓ MCP client connections established")
@@ -129,6 +138,61 @@ async def root():
         "architecture": "MCP",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
     }
+
+@app.post("/anonymize_llm")
+async def anonymize_llm_endpoint(request: Request):
+    """
+    LLM-driven anonymization endpoint - TRUE MCP implementation
+    
+    This endpoint uses an LLM to intelligently decide which MCP tools to use
+    based on the user request and text content.
+    """
+    start_time = time.time()
+    
+    try:
+        data = await request.json()
+        text = data.get("text", "")
+        user_request = data.get("user_request", "Anonymize this text")
+        options = data.get("options", {})
+        
+        logger.info(f"--- /anonymize_llm Request Received ---")
+        logger.info(f"User request: {user_request}")
+        logger.info(f"Text length: {len(text)}")
+        
+        if not text:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "No text provided"}
+            )
+        
+        if not llm_orchestrator:
+            return JSONResponse(
+                status_code=503,
+                content={"error": "LLM Orchestrator not available. Check GEMINI_API_KEY configuration."}
+            )
+        
+        # Use LLM orchestrator for TRUE MCP implementation
+        result = await llm_orchestrator.process_anonymization_request(
+            user_request=user_request,
+            text=text,
+            options=options
+        )
+        
+        processing_time = time.time() - start_time
+        result["total_processing_time"] = processing_time
+        
+        logger.info(f"LLM-driven anonymization completed in {processing_time:.2f}s")
+        logger.info(f"Strategy used: {result.get('execution_plan', {}).get('strategy', 'unknown')}")
+        logger.info(f"--- /anonymize_llm Request End ---")
+        
+        return JSONResponse(content=result)
+        
+    except Exception as e:
+        logger.error(f"Error in /anonymize_llm endpoint: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Internal server error: {str(e)}"}
+        )
 
 @app.post("/anonymize")
 async def anonymize_endpoint(request: Request):

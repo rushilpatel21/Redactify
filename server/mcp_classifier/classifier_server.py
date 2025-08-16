@@ -123,6 +123,190 @@ async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> D
     }
 
 @mcp.tool()
+async def classify_document_type(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Classify document type and determine appropriate processing strategy.
+    
+    Analyzes text to determine:
+    - Document type (medical, legal, financial, technical, general)
+    - Confidence level
+    - Recommended detection domains
+    - Processing strategy
+    """
+    request_id = str(uuid.uuid4())[:8]
+    start_time = time.time()
+    
+    logger.info(f"[{request_id}] Classifying document type for text of length {len(inputs)}")
+    
+    text = inputs or ""
+    if not text:
+        return {
+            "document_type": "unknown",
+            "confidence": 0.0,
+            "recommended_domains": ["general"],
+            "processing_strategy": "conservative"
+        }
+    
+    # Use LLM for detailed document classification
+    try:
+        prompt = f"""
+Analyze this text and classify the document type. Consider the content, terminology, and context.
+
+Text to analyze:
+"{text[:1500]}..."
+
+Classify into one of these categories:
+- medical: Healthcare records, clinical notes, patient information
+- legal: Legal documents, contracts, court records, case files
+- financial: Banking, financial records, tax documents, payment info
+- technical: Software documentation, API docs, technical specifications
+- general: Business communications, news, general correspondence
+
+Return JSON format:
+{{
+  "document_type": "category",
+  "confidence": 0.0-1.0,
+  "reasoning": "brief explanation",
+  "recommended_domains": ["domain1", "domain2"],
+  "processing_strategy": "conservative|balanced|aggressive"
+}}
+"""
+        
+        response = gemini_model.generate_content(prompt)
+        content = response.text.strip()
+        
+        # Parse JSON response
+        if "```json" in content:
+            json_start = content.find("```json") + 7
+            json_end = content.find("```", json_start)
+            json_str = content[json_start:json_end].strip()
+        elif "{" in content:
+            json_start = content.find("{")
+            json_end = content.rfind("}") + 1
+            json_str = content[json_start:json_end]
+        else:
+            raise ValueError("No JSON found in response")
+        
+        result = json.loads(json_str)
+        
+        duration = time.time() - start_time
+        logger.info(f"[{request_id}] Document classified as {result.get('document_type')} in {duration:.4f}s")
+        
+        return {
+            **result,
+            "processing_time": duration,
+            "tool_used": "classify_document_type"
+        }
+        
+    except Exception as e:
+        logger.error(f"[{request_id}] Error in document classification: {e}")
+        # Fallback classification
+        return {
+            "document_type": "general",
+            "confidence": 0.3,
+            "reasoning": "Fallback due to classification error",
+            "recommended_domains": ["general"],
+            "processing_strategy": "balanced",
+            "processing_time": time.time() - start_time,
+            "tool_used": "classify_document_type"
+        }
+
+@mcp.tool()
+async def assess_sensitivity_level(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Assess document sensitivity level and recommend anonymization approach.
+    
+    Analyzes text to determine:
+    - Sensitivity level (low, medium, high, critical)
+    - Risk factors present
+    - Recommended anonymization strategy
+    - Confidence thresholds
+    """
+    request_id = str(uuid.uuid4())[:8]
+    start_time = time.time()
+    
+    logger.info(f"[{request_id}] Assessing sensitivity level for text of length {len(inputs)}")
+    
+    text = inputs or ""
+    if not text:
+        return {
+            "sensitivity_level": "unknown",
+            "confidence": 0.0,
+            "risk_factors": [],
+            "recommendations": {}
+        }
+    
+    try:
+        prompt = f"""
+Analyze this text for sensitivity level and privacy risks. Consider what types of personal or sensitive information might be present.
+
+Text to analyze:
+"{text[:1500]}..."
+
+Assess the sensitivity and return JSON:
+{{
+  "sensitivity_level": "low|medium|high|critical",
+  "confidence": 0.0-1.0,
+  "risk_factors": ["list of specific risks found"],
+  "recommendations": {{
+    "anonymization_strategy": "conservative|balanced|aggressive",
+    "confidence_threshold": 0.0-1.0,
+    "special_handling": ["any special considerations"]
+  }},
+  "reasoning": "brief explanation of assessment"
+}}
+
+Sensitivity levels:
+- low: General business content, public information
+- medium: Internal communications, some personal references
+- high: Personal data, financial info, health references
+- critical: Highly sensitive PII, medical records, legal documents
+"""
+        
+        response = gemini_model.generate_content(prompt)
+        content = response.text.strip()
+        
+        # Parse JSON response
+        if "```json" in content:
+            json_start = content.find("```json") + 7
+            json_end = content.find("```", json_start)
+            json_str = content[json_start:json_end].strip()
+        elif "{" in content:
+            json_start = content.find("{")
+            json_end = content.rfind("}") + 1
+            json_str = content[json_start:json_end]
+        else:
+            raise ValueError("No JSON found in response")
+        
+        result = json.loads(json_str)
+        
+        duration = time.time() - start_time
+        logger.info(f"[{request_id}] Sensitivity assessed as {result.get('sensitivity_level')} in {duration:.4f}s")
+        
+        return {
+            **result,
+            "processing_time": duration,
+            "tool_used": "assess_sensitivity_level"
+        }
+        
+    except Exception as e:
+        logger.error(f"[{request_id}] Error in sensitivity assessment: {e}")
+        # Fallback assessment
+        return {
+            "sensitivity_level": "medium",
+            "confidence": 0.3,
+            "risk_factors": ["unknown"],
+            "recommendations": {
+                "anonymization_strategy": "balanced",
+                "confidence_threshold": 0.5,
+                "special_handling": []
+            },
+            "reasoning": "Fallback due to assessment error",
+            "processing_time": time.time() - start_time,
+            "tool_used": "assess_sensitivity_level"
+        }
+
+@mcp.tool()
 async def health_check() -> Dict[str, str]:
     """Check the health of the LLM classifier service."""
     model_status = "initialized" if gemini_model else "not_initialized"
@@ -138,7 +322,7 @@ if __name__ == "__main__":
     from fastapi import FastAPI, Request, Response
     import uvicorn
     
-    port = int(os.environ.get("MCP_CLASSIFIER_PORT", 8001))
+    port = int(os.environ.get("MCP_CLASSIFIER_PORT", 3007))
     logger.info(f"Starting LLM Text Classifier MCP Server on port {port}")
     
     # Create a regular FastAPI app

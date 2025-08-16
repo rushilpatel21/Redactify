@@ -16,7 +16,11 @@ class AutoMCPManager:
         self.agent_scripts = {
             "general": ("a2a_ner_general/general_ner_agent.py", 3001),
             "medical": ("a2a_ner_medical/medical_ner_agent.py", 3002),
+            "technical": ("a2a_ner_technical/technical_ner_agent.py", 3003),
+            "legal": ("a2a_ner_legal/legal_ner_agent.py", 3004),
+            "financial": ("a2a_ner_financial/financial_ner_agent.py", 3005),
             "pii_specialized": ("a2a_ner_pii_specialized/pii_specialized_ner_agent.py", 3006),
+            "classifier": ("mcp_classifier/classifier_server.py", 3007),
         }
 
     async def start_all_servers(self, timeout: float = 300.0) -> bool:

@@ -291,13 +291,13 @@ class DetectionEngine:
         try:
             # For now, use simple heuristic classification
             # TODO: Implement MCP classifier service
-            domains = ["general"]
+            domains = ["a2a_ner_general"]  # Fixed: Use correct MCP client name
             
             # Simple keyword-based classification
             text_lower = text.lower()
             
             if any(word in text_lower for word in ['medical', 'patient', 'doctor', 'hospital', 'diagnosis']):
-                domains.append("medical")
+                domains.append("a2a_ner_medical")  # Fixed: Use correct MCP client name
             
             # Disabled domains for testing:
             # if any(word in text_lower for word in ['agreement', 'contract', 'legal', 'court', 'law']):

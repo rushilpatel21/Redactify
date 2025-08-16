@@ -48,7 +48,18 @@ logger.info(f"[{AGENT_ID}] FastMCP initialized")
 # --- MCP Tools ---
 @mcp.tool()
 async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Detect named entities in text."""
+    """
+    Detect standard named entities in text using BERT-based NER.
+    
+    Specializes in:
+    - PERSON: Names of individuals
+    - ORG: Organizations, companies, institutions  
+    - LOC: Locations, places, geographical entities
+    - MISC: Miscellaneous entities
+    
+    Best used for: General documents, news articles, business communications
+    Confidence range: 0.0-1.0 (typically 0.8+ for high-quality detections)
+    """
     import asyncio
     import concurrent.futures
     
@@ -136,6 +147,518 @@ async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> D
         return {"entities": []}
 
 @mcp.tool()
+async def pseudonymize_entities(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Replace detected entities with consistent pseudonyms for anonymization.
+    
+    Creates hash-based pseudonyms that are:
+    - Consistent: Same entity always gets same pseudonym
+    - Secure: Original values cannot be recovered
+    - Formatted: Maintains entity type context
+    
+    Parameters:
+    - inputs: Original text
+    - parameters: {
+        "entities": List of detected entities with positions,
+        "strategy": "hash" | "sequential" | "random",
+        "preserve_format": boolean
+      }
+    
+    Returns: Anonymized text with pseudonymized entities
+    """
+    import hashlib
+    import re
+    
+    request_id = str(uuid.uuid4())[:8]
+    logger.info(f"[{AGENT_ID}][{request_id}] ENTRY: pseudonymize_entities function called")
+    
+    text = inputs or ""
+    params = parameters or {}
+    entities = params.get("entities", [])
+    strategy = params.get("strategy", "hash")
+    preserve_format = params.get("preserve_format", True)
+    
+    if not text or not entities:
+        logger.warning(f"[{AGENT_ID}][{request_id}] Empty text or entities, returning original")
+        return {"anonymized_text": text, "entities_processed": 0}
+    
+    logger.info(f"[{AGENT_ID}][{request_id}] Pseudonymizing {len(entities)} entities using {strategy} strategy")
+    
+    try:
+        # Sort entities by start position (reverse order to maintain positions)
+        sorted_entities = sorted(entities, key=lambda x: x.get('start', 0), reverse=True)
+        
+        anonymized_text = text
+        entities_processed = 0
+        pseudonym_map = {}
+        
+        for entity in sorted_entities:
+            start = entity.get('start')
+            end = entity.get('end')
+            entity_type = entity.get('entity_group', 'UNKNOWN').upper()
+            original_text = entity.get('word', '')
+            
+            if start is None or end is None:
+                logger.warning(f"[{AGENT_ID}][{request_id}] Entity missing position info, skipping")
+                continue
+            
+            # Extract actual text from positions (more reliable than 'word' field)
+            if 0 <= start < len(text) and start < end <= len(text):
+                actual_text = text[start:end]
+            else:
+                logger.warning(f"[{AGENT_ID}][{request_id}] Invalid entity positions, skipping")
+                continue
+            
+            # Generate pseudonym
+            if actual_text in pseudonym_map:
+                pseudonym = pseudonym_map[actual_text]
+            else:
+                if strategy == "hash":
+                    # Create hash-based pseudonym
+                    hash_obj = hashlib.md5(actual_text.encode()).hexdigest()[:6]
+                    pseudonym = f"[{entity_type}-{hash_obj.upper()}]"
+                elif strategy == "sequential":
+                    # Sequential numbering per entity type
+                    type_count = len([p for p in pseudonym_map.values() if entity_type in p]) + 1
+                    pseudonym = f"[{entity_type}-{type_count:03d}]"
+                else:  # random
+                    import random
+                    rand_id = random.randint(100000, 999999)
+                    pseudonym = f"[{entity_type}-{rand_id}]"
+                
+                pseudonym_map[actual_text] = pseudonym
+            
+            # Replace in text
+            anonymized_text = anonymized_text[:start] + pseudonym + anonymized_text[end:]
+            entities_processed += 1
+            
+            logger.debug(f"[{AGENT_ID}][{request_id}] Replaced '{actual_text}' with '{pseudonym}'")
+        
+        logger.info(f"[{AGENT_ID}][{request_id}] Successfully pseudonymized {entities_processed} entities")
+        logger.info(f"[{AGENT_ID}][{request_id}] EXIT: pseudonymize_entities function completed")
+        
+        return {
+            "anonymized_text": anonymized_text,
+            "entities_processed": entities_processed,
+            "pseudonym_map": pseudonym_map,
+            "strategy_used": strategy,
+            "tool_used": "pseudonymize_entities"
+        }
+        
+    except Exception as e:
+        logger.error(f"[{AGENT_ID}][{request_id}] Error in pseudonymization: {e}", exc_info=True)
+        return {
+            "anonymized_text": text,
+            "entities_processed": 0,
+            "error": str(e),
+            "tool_used": "pseudonymize_entities"
+        }
+
+@mcp.tool()
+async def mask_entities(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Partially mask detected entities while preserving format and context.
+    
+    Masking strategies:
+    - Names: Show first letter + asterisks (J*** S***)
+    - Numbers: Show first/last digits (***-**-1234)
+    - Emails: Show domain (@company.com)
+    - Phones: Show area code (555-***-****)
+    
+    Parameters:
+    - inputs: Original text
+    - parameters: {
+        "entities": List of detected entities,
+        "mask_char": Character to use for masking (default: "*"),
+        "preserve_length": boolean,
+        "show_partial": boolean
+      }
+    
+    Returns: Text with entities partially masked
+    """
+    request_id = str(uuid.uuid4())[:8]
+    logger.info(f"[{AGENT_ID}][{request_id}] ENTRY: mask_entities function called")
+    
+    text = inputs or ""
+    params = parameters or {}
+    entities = params.get("entities", [])
+    mask_char = params.get("mask_char", "*")
+    preserve_length = params.get("preserve_length", True)
+    show_partial = params.get("show_partial", True)
+    
+    if not text or not entities:
+        logger.warning(f"[{AGENT_ID}][{request_id}] Empty text or entities, returning original")
+        return {"anonymized_text": text, "entities_processed": 0}
+    
+    logger.info(f"[{AGENT_ID}][{request_id}] Masking {len(entities)} entities")
+    
+    try:
+        # Sort entities by start position (reverse order)
+        sorted_entities = sorted(entities, key=lambda x: x.get('start', 0), reverse=True)
+        
+        anonymized_text = text
+        entities_processed = 0
+        
+        for entity in sorted_entities:
+            start = entity.get('start')
+            end = entity.get('end')
+            entity_type = entity.get('entity_group', 'UNKNOWN').upper()
+            
+            if start is None or end is None or start >= end:
+                continue
+            
+            if not (0 <= start < len(text) and start < end <= len(text)):
+                continue
+            
+            original_text = text[start:end]
+            masked_text = original_text
+            
+            # Apply entity-specific masking rules
+            if entity_type in ['PERSON', 'PER']:
+                # Names: Show first letter of each word
+                if show_partial and len(original_text) > 2:
+                    words = original_text.split()
+                    masked_words = []
+                    for word in words:
+                        if len(word) > 1:
+                            masked_word = word[0] + mask_char * (len(word) - 1)
+                        else:
+                            masked_word = mask_char
+                        masked_words.append(masked_word)
+                    masked_text = " ".join(masked_words)
+                else:
+                    masked_text = mask_char * len(original_text)
+            
+            elif entity_type in ['EMAIL', 'EMAIL_ADDRESS']:
+                # Emails: Show domain part
+                if show_partial and '@' in original_text:
+                    local, domain = original_text.split('@', 1)
+                    masked_local = mask_char * len(local)
+                    masked_text = f"{masked_local}@{domain}"
+                else:
+                    masked_text = mask_char * len(original_text)
+            
+            elif entity_type in ['PHONE', 'PHONE_NUMBER']:
+                # Phone: Show area code or last 4 digits
+                if show_partial and len(original_text) >= 7:
+                    if original_text.startswith('+') or '-' in original_text:
+                        # Keep format, mask middle
+                        masked_text = re.sub(r'\d', mask_char, original_text[:-4]) + original_text[-4:]
+                    else:
+                        masked_text = original_text[:3] + mask_char * (len(original_text) - 7) + original_text[-4:]
+                else:
+                    masked_text = mask_char * len(original_text)
+            
+            elif entity_type in ['SSN', 'SOCIAL_SECURITY']:
+                # SSN: Show last 4 digits
+                if show_partial and len(original_text) >= 4:
+                    masked_text = mask_char * (len(original_text) - 4) + original_text[-4:]
+                else:
+                    masked_text = mask_char * len(original_text)
+            
+            else:
+                # Default: Mask everything or show first character
+                if show_partial and len(original_text) > 2:
+                    masked_text = original_text[0] + mask_char * (len(original_text) - 1)
+                else:
+                    masked_text = mask_char * len(original_text)
+            
+            # Replace in text
+            anonymized_text = anonymized_text[:start] + masked_text + anonymized_text[end:]
+            entities_processed += 1
+            
+            logger.debug(f"[{AGENT_ID}][{request_id}] Masked '{original_text}' -> '{masked_text}'")
+        
+        logger.info(f"[{AGENT_ID}][{request_id}] Successfully masked {entities_processed} entities")
+        logger.info(f"[{AGENT_ID}][{request_id}] EXIT: mask_entities function completed")
+        
+        return {
+            "anonymized_text": anonymized_text,
+            "entities_processed": entities_processed,
+            "mask_character": mask_char,
+            "tool_used": "mask_entities"
+        }
+        
+    except Exception as e:
+        logger.error(f"[{AGENT_ID}][{request_id}] Error in masking: {e}", exc_info=True)
+        return {
+            "anonymized_text": text,
+            "entities_processed": 0,
+            "error": str(e),
+            "tool_used": "mask_entities"
+        }
+
+@mcp.tool()
+async def redact_entities(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Completely remove or redact detected entities from text.
+    
+    Redaction strategies:
+    - Remove: Complete removal with space cleanup
+    - Replace: Replace with [REDACTED] or custom placeholder
+    - Blackout: Replace with █ characters
+    
+    Parameters:
+    - inputs: Original text
+    - parameters: {
+        "entities": List of detected entities,
+        "redaction_style": "remove" | "replace" | "blackout",
+        "placeholder": Custom placeholder text,
+        "clean_whitespace": boolean
+      }
+    
+    Returns: Text with entities completely redacted
+    """
+    request_id = str(uuid.uuid4())[:8]
+    logger.info(f"[{AGENT_ID}][{request_id}] ENTRY: redact_entities function called")
+    
+    text = inputs or ""
+    params = parameters or {}
+    entities = params.get("entities", [])
+    redaction_style = params.get("redaction_style", "replace")
+    placeholder = params.get("placeholder", "[REDACTED]")
+    clean_whitespace = params.get("clean_whitespace", True)
+    
+    if not text or not entities:
+        logger.warning(f"[{AGENT_ID}][{request_id}] Empty text or entities, returning original")
+        return {"anonymized_text": text, "entities_processed": 0}
+    
+    logger.info(f"[{AGENT_ID}][{request_id}] Redacting {len(entities)} entities using {redaction_style} style")
+    
+    try:
+        # Sort entities by start position (reverse order)
+        sorted_entities = sorted(entities, key=lambda x: x.get('start', 0), reverse=True)
+        
+        anonymized_text = text
+        entities_processed = 0
+        
+        for entity in sorted_entities:
+            start = entity.get('start')
+            end = entity.get('end')
+            entity_type = entity.get('entity_group', 'UNKNOWN').upper()
+            
+            if start is None or end is None or start >= end:
+                continue
+            
+            if not (0 <= start < len(text) and start < end <= len(text)):
+                continue
+            
+            original_text = text[start:end]
+            
+            # Apply redaction based on style
+            if redaction_style == "remove":
+                replacement = ""
+            elif redaction_style == "blackout":
+                replacement = "█" * len(original_text)
+            elif redaction_style == "replace":
+                if placeholder == "[REDACTED]":
+                    replacement = f"[{entity_type}_REDACTED]"
+                else:
+                    replacement = placeholder
+            else:
+                replacement = "[REDACTED]"
+            
+            # Replace in text
+            anonymized_text = anonymized_text[:start] + replacement + anonymized_text[end:]
+            entities_processed += 1
+            
+            logger.debug(f"[{AGENT_ID}][{request_id}] Redacted '{original_text}' -> '{replacement}'")
+        
+        # Clean up whitespace if requested
+        if clean_whitespace and redaction_style == "remove":
+            # Remove extra spaces, but preserve sentence structure
+            anonymized_text = re.sub(r'\s+', ' ', anonymized_text)
+            anonymized_text = re.sub(r'\s+([,.!?;:])', r'\1', anonymized_text)
+            anonymized_text = anonymized_text.strip()
+        
+        logger.info(f"[{AGENT_ID}][{request_id}] Successfully redacted {entities_processed} entities")
+        logger.info(f"[{AGENT_ID}][{request_id}] EXIT: redact_entities function completed")
+        
+        return {
+            "anonymized_text": anonymized_text,
+            "entities_processed": entities_processed,
+            "redaction_style": redaction_style,
+            "tool_used": "redact_entities"
+        }
+        
+    except Exception as e:
+        logger.error(f"[{AGENT_ID}][{request_id}] Error in redaction: {e}", exc_info=True)
+        return {
+            "anonymized_text": text,
+            "entities_processed": 0,
+            "error": str(e),
+            "tool_used": "redact_entities"
+        }
+
+@mcp.tool()
+async def merge_overlapping_entities(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Intelligently merge overlapping entity detections from multiple models.
+    
+    Handles cases where:
+    - Multiple models detect the same entity with different boundaries
+    - Entities overlap partially (e.g., "John Smith" vs "Smith")
+    - Different confidence scores for same entity
+    
+    Parameters:
+    - inputs: Original text (for validation)
+    - parameters: {
+        "entities": List of entities to merge,
+        "merge_strategy": "highest_confidence" | "longest_span" | "most_specific",
+        "overlap_threshold": 0.5 (minimum overlap ratio to consider merging)
+      }
+    
+    Returns: Merged list of entities without overlaps
+    """
+    request_id = str(uuid.uuid4())[:8]
+    logger.info(f"[{AGENT_ID}][{request_id}] ENTRY: merge_overlapping_entities function called")
+    
+    text = inputs or ""
+    params = parameters or {}
+    entities = params.get("entities", [])
+    merge_strategy = params.get("merge_strategy", "highest_confidence")
+    overlap_threshold = params.get("overlap_threshold", 0.5)
+    
+    if not entities:
+        logger.warning(f"[{AGENT_ID}][{request_id}] No entities provided, returning empty list")
+        return {"entities": [], "merges_performed": 0}
+    
+    logger.info(f"[{AGENT_ID}][{request_id}] Merging {len(entities)} entities using {merge_strategy} strategy")
+    
+    try:
+        # Sort entities by start position
+        sorted_entities = sorted(entities, key=lambda x: x.get('start', 0))
+        merged_entities = []
+        merges_performed = 0
+        
+        i = 0
+        while i < len(sorted_entities):
+            current_entity = sorted_entities[i]
+            current_start = current_entity.get('start', 0)
+            current_end = current_entity.get('end', 0)
+            
+            # Find all overlapping entities
+            overlapping = [current_entity]
+            j = i + 1
+            
+            while j < len(sorted_entities):
+                next_entity = sorted_entities[j]
+                next_start = next_entity.get('start', 0)
+                next_end = next_entity.get('end', 0)
+                
+                # Check if entities overlap
+                overlap_start = max(current_start, next_start)
+                overlap_end = min(current_end, next_end)
+                
+                if overlap_start < overlap_end:
+                    # Calculate overlap ratio
+                    overlap_length = overlap_end - overlap_start
+                    current_length = current_end - current_start
+                    next_length = next_end - next_start
+                    
+                    overlap_ratio = overlap_length / min(current_length, next_length)
+                    
+                    if overlap_ratio >= overlap_threshold:
+                        overlapping.append(next_entity)
+                        # Update current bounds to include this entity
+                        current_end = max(current_end, next_end)
+                        j += 1
+                    else:
+                        break
+                else:
+                    break
+            
+            # Merge overlapping entities
+            if len(overlapping) > 1:
+                merged_entity = _merge_entity_group(overlapping, merge_strategy, text)
+                merged_entities.append(merged_entity)
+                merges_performed += len(overlapping) - 1
+                logger.debug(f"[{AGENT_ID}][{request_id}] Merged {len(overlapping)} overlapping entities")
+            else:
+                merged_entities.append(current_entity)
+            
+            # Move to next non-overlapping entity
+            i += len(overlapping)
+        
+        logger.info(f"[{AGENT_ID}][{request_id}] Completed merging: {len(entities)} -> {len(merged_entities)} entities")
+        logger.info(f"[{AGENT_ID}][{request_id}] EXIT: merge_overlapping_entities function completed")
+        
+        return {
+            "entities": merged_entities,
+            "original_count": len(entities),
+            "merged_count": len(merged_entities),
+            "merges_performed": merges_performed,
+            "merge_strategy": merge_strategy,
+            "tool_used": "merge_overlapping_entities"
+        }
+        
+    except Exception as e:
+        logger.error(f"[{AGENT_ID}][{request_id}] Error in entity merging: {e}", exc_info=True)
+        return {
+            "entities": entities,  # Return original entities on error
+            "original_count": len(entities),
+            "merged_count": len(entities),
+            "merges_performed": 0,
+            "error": str(e),
+            "tool_used": "merge_overlapping_entities"
+        }
+
+def _merge_entity_group(entities: List[Dict], strategy: str, text: str) -> Dict:
+    """Helper method to merge a group of overlapping entities"""
+    if not entities:
+        return {}
+    
+    if len(entities) == 1:
+        return entities[0]
+    
+    # Determine merged boundaries
+    min_start = min(e.get('start', 0) for e in entities)
+    max_end = max(e.get('end', 0) for e in entities)
+    
+    # Select best entity based on strategy
+    if strategy == "highest_confidence":
+        best_entity = max(entities, key=lambda x: x.get('score', 0))
+    elif strategy == "longest_span":
+        best_entity = max(entities, key=lambda x: x.get('end', 0) - x.get('start', 0))
+    elif strategy == "most_specific":
+        # Prefer more specific entity types (medical > general, etc.)
+        type_priority = {
+            'PERSON': 5, 'PER': 5,
+            'ORGANIZATION': 4, 'ORG': 4,
+            'LOCATION': 3, 'LOC': 3,
+            'MISC': 2,
+            'O': 1
+        }
+        best_entity = max(entities, key=lambda x: type_priority.get(x.get('entity_group', ''), 0))
+    else:
+        best_entity = entities[0]
+    
+    # Create merged entity
+    merged = best_entity.copy()
+    merged['start'] = min_start
+    merged['end'] = max_end
+    
+    # Update word field with actual text
+    if text and 0 <= min_start < len(text) and min_start < max_end <= len(text):
+        merged['word'] = text[min_start:max_end]
+    
+    # Combine detector information
+    detectors = set()
+    for entity in entities:
+        if 'detector' in entity:
+            detectors.add(entity['detector'])
+    merged['detector'] = ','.join(sorted(detectors))
+    
+    # Average confidence scores
+    scores = [e.get('score', 0) for e in entities if 'score' in e]
+    if scores:
+        merged['score'] = sum(scores) / len(scores)
+    
+    merged['merged_from'] = len(entities)
+    
+    return merged
+
+@mcp.tool()
 async def health_check() -> Dict[str, Any]:
     """Check the health of the NER agent service."""
     request_id = str(uuid.uuid4())[:8]
@@ -146,6 +669,10 @@ async def health_check() -> Dict[str, Any]:
         "agent_id": AGENT_ID,
         "model_loaded": ner_pipeline is not None,
         "model_name": MODEL_NAME,
+        "available_tools": [
+            "predict", "pseudonymize_entities", "mask_entities", 
+            "redact_entities", "merge_overlapping_entities", "health_check"
+        ],
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
     }
     
@@ -199,6 +726,62 @@ if __name__ == "__main__":
                         "id": json_rpc_id
                     }
                     logger.info(f"[{AGENT_ID}][{request_id}] Returning response")
+                    return Response(content=json.dumps(response_data), media_type="application/json")
+                
+                elif method == "pseudonymize_entities" and "inputs" in params:
+                    logger.info(f"[{AGENT_ID}][{request_id}] Calling pseudonymize_entities")
+                    start_time = time.time()
+                    result = await pseudonymize_entities(inputs=params["inputs"], parameters=params.get("parameters"))
+                    duration = time.time() - start_time
+                    logger.info(f"[{AGENT_ID}][{request_id}] pseudonymize_entities completed in {duration:.2f}s")
+                    
+                    response_data = {
+                        "jsonrpc": "2.0",
+                        "result": result,
+                        "id": json_rpc_id
+                    }
+                    return Response(content=json.dumps(response_data), media_type="application/json")
+                
+                elif method == "mask_entities" and "inputs" in params:
+                    logger.info(f"[{AGENT_ID}][{request_id}] Calling mask_entities")
+                    start_time = time.time()
+                    result = await mask_entities(inputs=params["inputs"], parameters=params.get("parameters"))
+                    duration = time.time() - start_time
+                    logger.info(f"[{AGENT_ID}][{request_id}] mask_entities completed in {duration:.2f}s")
+                    
+                    response_data = {
+                        "jsonrpc": "2.0",
+                        "result": result,
+                        "id": json_rpc_id
+                    }
+                    return Response(content=json.dumps(response_data), media_type="application/json")
+                
+                elif method == "redact_entities" and "inputs" in params:
+                    logger.info(f"[{AGENT_ID}][{request_id}] Calling redact_entities")
+                    start_time = time.time()
+                    result = await redact_entities(inputs=params["inputs"], parameters=params.get("parameters"))
+                    duration = time.time() - start_time
+                    logger.info(f"[{AGENT_ID}][{request_id}] redact_entities completed in {duration:.2f}s")
+                    
+                    response_data = {
+                        "jsonrpc": "2.0",
+                        "result": result,
+                        "id": json_rpc_id
+                    }
+                    return Response(content=json.dumps(response_data), media_type="application/json")
+                
+                elif method == "merge_overlapping_entities" and "inputs" in params:
+                    logger.info(f"[{AGENT_ID}][{request_id}] Calling merge_overlapping_entities")
+                    start_time = time.time()
+                    result = await merge_overlapping_entities(inputs=params["inputs"], parameters=params.get("parameters"))
+                    duration = time.time() - start_time
+                    logger.info(f"[{AGENT_ID}][{request_id}] merge_overlapping_entities completed in {duration:.2f}s")
+                    
+                    response_data = {
+                        "jsonrpc": "2.0",
+                        "result": result,
+                        "id": json_rpc_id
+                    }
                     return Response(content=json.dumps(response_data), media_type="application/json")
                 
                 elif method == "health_check":
