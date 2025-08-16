@@ -299,14 +299,15 @@ class DetectionEngine:
             if any(word in text_lower for word in ['medical', 'patient', 'doctor', 'hospital', 'diagnosis']):
                 domains.append("medical")
             
-            if any(word in text_lower for word in ['agreement', 'contract', 'legal', 'court', 'law']):
-                domains.append("legal")
-            
-            if any(word in text_lower for word in ['financial', 'bank', 'credit', 'loan', 'investment']):
-                domains.append("financial")
-            
-            if any(word in text_lower for word in ['technical', 'software', 'code', 'api', 'system']):
-                domains.append("technical")
+            # Disabled domains for testing:
+            # if any(word in text_lower for word in ['agreement', 'contract', 'legal', 'court', 'law']):
+            #     domains.append("legal")
+            # 
+            # if any(word in text_lower for word in ['financial', 'bank', 'credit', 'loan', 'investment']):
+            #     domains.append("financial")
+            # 
+            # if any(word in text_lower for word in ['technical', 'software', 'code', 'api', 'system']):
+            #     domains.append("technical")
             
             logger.debug(f"Classified text domains: {domains}")
             return domains
@@ -315,7 +316,7 @@ class DetectionEngine:
             max_length = 4000
             truncated_text = text[:max_length] if len(text) > max_length else text
             
-            categories = ["medical", "technical", "legal", "financial", "general"]
+            categories = ["medical", "general"]  # Only enabled categories
             
             prompt = f"""
             You are a document classifier that helps route text to specialized PII detection models.

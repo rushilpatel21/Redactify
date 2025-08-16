@@ -60,11 +60,14 @@ async def startup_event():
     
     # Step 1: Automatically start all MCP servers
     logger.info("Step 1: Starting MCP servers automatically...")
-    success = await auto_mcp_manager.start_all_servers(timeout=180.0)  # 3 minutes timeout
+    success = await auto_mcp_manager.start_all_servers(timeout=300.0)  # 5 minutes timeout
     
     if not success:
-        logger.error("Failed to start MCP servers! Some functionality may be limited.")
-        # Continue anyway - the system can work with just Presidio and regex
+        logger.warning("Some MCP servers failed to start. System will work with available servers + Presidio/regex fallback.")
+        # Get status of what did start
+        status = auto_mcp_manager.get_server_status()
+        running_count = sum(1 for s in status.values() if s["running"])
+        logger.info(f"Running servers: {running_count}/{len(status)}")
     else:
         logger.info("✓ All MCP servers started successfully")
     
@@ -73,14 +76,15 @@ async def startup_event():
     mcp_client_manager = MCPClientManager()
     await mcp_client_manager.__aenter__()
     
-    # Add MCP server configurations
+    # Add MCP server configurations for 3 essential servers only
     mcp_servers = [
         MCPServerConfig("general", port=3001),
         MCPServerConfig("medical", port=3002),
-        MCPServerConfig("technical", port=3003),
-        MCPServerConfig("legal", port=3004),
-        MCPServerConfig("financial", port=3005),
         MCPServerConfig("pii_specialized", port=3006),
+        # Disabled for testing:
+        # MCPServerConfig("technical", port=3003),
+        # MCPServerConfig("legal", port=3004),
+        # MCPServerConfig("financial", port=3005),
     ]
     
     for server_config in mcp_servers:
@@ -93,8 +97,13 @@ async def startup_event():
     logger.info("✓ Server startup complete")
     logger.info("=== Redactify MCP System Ready ===")
     
-    # Start monitoring MCP servers
-    auto_mcp_manager.monitoring_task = asyncio.create_task(auto_mcp_manager.start_monitoring())
+    # Start monitoring MCP servers (only if servers started successfully)
+    if success:
+        try:
+            auto_mcp_manager.monitoring_task = asyncio.create_task(auto_mcp_manager.start_monitoring())
+            logger.info("✓ MCP server monitoring started")
+        except Exception as e:
+            logger.warning(f"Failed to start MCP monitoring: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -460,15 +469,13 @@ if __name__ == "__main__":
     print(f"Environment: {os.environ.get('ENVIRONMENT', 'development')}")
     print(f"Max workers: {os.environ.get('MAX_WORKERS', '8')}")
     print(f"Max model memory: {os.environ.get('MAX_MODEL_MEMORY_MB', '4096')}MB")
-    print(f"Gemini API: {'✓' if os.environ.get('GEMINI_API_KEY') else '✗'}")
+    print(f"Gemini API: {'OK' if os.environ.get('GEMINI_API_KEY') else 'NOT SET'}")
     print(f"")
-    print(f"MCP Servers (auto-started):")
+    print(f"MCP Servers (auto-started - 3 essential servers):")
     print(f"  • General NER:      http://localhost:3001")
     print(f"  • Medical NER:      http://localhost:3002")
-    print(f"  • Technical NER:    http://localhost:3003")
-    print(f"  • Legal NER:        http://localhost:3004")
-    print(f"  • Financial NER:    http://localhost:3005")
     print(f"  • PII Specialized:  http://localhost:3006")
+    print(f"  (Technical, Legal, Financial servers disabled for testing)")
     print(f"")
     print(f"Health Check: http://localhost:{port}/health")
     print(f"MCP Status:   http://localhost:{port}/mcp-status")

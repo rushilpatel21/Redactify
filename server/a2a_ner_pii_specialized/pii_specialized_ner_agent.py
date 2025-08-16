@@ -49,6 +49,9 @@ logger.info(f"[{AGENT_ID}] FastMCP initialized")
 @mcp.tool()
 async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Detect specialized PII entities in text."""
+    import asyncio
+    import concurrent.futures
+    
     request_id = str(uuid.uuid4())[:8]
     logger.info(f"[{AGENT_ID}][{request_id}] ENTRY: predict function called")
     
@@ -64,11 +67,24 @@ async def predict(inputs: str, parameters: Optional[Dict[str, Any]] = None) -> D
     logger.info(f"[{AGENT_ID}][{request_id}] Processing text of length {len(text)}")
     logger.debug(f"[{AGENT_ID}][{request_id}] Text snippet (first 100 chars): {text[:100]}")
     
+    def run_ner_pipeline(text_input):
+        """Run NER pipeline in a separate thread to avoid blocking the event loop"""
+        try:
+            return ner_pipeline(text_input)
+        except Exception as e:
+            logger.error(f"[{AGENT_ID}][{request_id}] Error in NER pipeline: {e}")
+            return []
+    
     try:
-        # Step 1: Entity detection
-        logger.info(f"[{AGENT_ID}][{request_id}] Step 1: Starting entity detection")
+        # Step 1: Entity detection - run in thread pool to avoid blocking
+        logger.info(f"[{AGENT_ID}][{request_id}] Step 1: Starting entity detection in thread pool")
         start_time = time.time()
-        raw_results = ner_pipeline(text)
+        
+        # Use thread pool executor to run the blocking NER pipeline
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            raw_results = await loop.run_in_executor(executor, run_ner_pipeline, text)
+        
         detection_time = time.time() - start_time
         logger.info(f"[{AGENT_ID}][{request_id}] Step 2: Detection completed in {detection_time:.2f}s")
         

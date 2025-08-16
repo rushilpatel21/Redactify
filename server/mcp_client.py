@@ -142,7 +142,7 @@ class MCPServerConfig:
         name: str,
         host: str = "localhost",
         port: int = 3001,
-        timeout: float = 30.0,
+        timeout: float = 120.0,
         max_retries: int = 3,
         retry_delay: float = 1.0,
         enabled: bool = True
@@ -392,7 +392,7 @@ class MCPClientManager:
     async def __aenter__(self):
         """Async context manager entry"""
         if self._own_session:
-            timeout = ClientTimeout(total=30.0)
+            timeout = ClientTimeout(total=120.0)
             self.session = ClientSession(timeout=timeout)
         
         # Start health monitoring
