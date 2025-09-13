@@ -290,7 +290,7 @@ class DetectionEngine:
         """Classify text to determine relevant domains using MCP classifier"""
         try:
             # For now, use simple heuristic classification
-            # TODO: Implement MCP classifier service
+            
             domains = ["general"]
             
             # Simple keyword-based classification
