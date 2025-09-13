@@ -56,7 +56,7 @@ const Toast = Swal.mixin({
 function App() {
   const [inputText, setInputText] = useState("");
   const [outputText, setOutputText] = useState("");
-  const [userRequest, setUserRequest] = useState("Anonymize this text completely");
+  const [userRequest, setUserRequest] = useState("Please analyze this text and intelligently detect all personally identifiable information (PII) including names, organizations, locations, contact details, financial information, medical data, technical credentials, and any other sensitive information. Apply comprehensive anonymization using the most appropriate detection models and redaction strategies to ensure complete privacy protection while maintaining text readability and context.");
   const [options, setOptions] = useState(
     piiTypes.reduce((acc, type) => ({ ...acc, [type.id]: true }), {})
   );
@@ -86,18 +86,14 @@ function App() {
     setExecutionPlan(null);
     
     try {
-      // Choose endpoint based on TRUE MCP toggle
-      const endpoint = useTrueMCP ? '/anonymize_llm' : '/anonymize';
+      // Always use LLM endpoint
+      const endpoint = '/anonymize_llm';
       
-      // Prepare request body based on endpoint
-      const requestBody = useTrueMCP ? {
+      // Prepare request body
+      const requestBody = {
         user_request: userRequest,
         text: inputText,
         options: options
-      } : {
-        text: inputText,
-        options: options,
-        full_redaction: fullRedaction
       };
       
       const response = await fetch(`${BASE_URL}${endpoint}`, {
@@ -113,8 +109,8 @@ function App() {
       if (data.anonymized_text) {
         setOutputText(data.anonymized_text);
         
-        // Store execution plan for TRUE MCP
-        if (useTrueMCP && data.execution_plan) {
+        // Store execution plan
+        if (data.execution_plan) {
           setExecutionPlan(data.execution_plan);
         }
         
@@ -177,7 +173,7 @@ function App() {
     setInputText("");
     setOutputText("");
     setExecutionPlan(null);
-    setUserRequest("Anonymize this text completely");
+    setUserRequest("Please analyze this text and intelligently detect all personally identifiable information (PII) including names, organizations, locations, contact details, financial information, medical data, technical credentials, and any other sensitive information. Apply comprehensive anonymization using the most appropriate detection models and redaction strategies to ensure complete privacy protection while maintaining text readability and context.");
   };
 
   return (
@@ -211,46 +207,6 @@ function App() {
         >
           <form onSubmit={handleSubmit}>
             <section className="text-sections">
-              {/* TRUE MCP Toggle */}
-              <div className="mcp-toggle-section">
-                <label className="mcp-toggle">
-                  <input
-                    type="checkbox"
-                    checked={useTrueMCP}
-                    onChange={(e) => setUseTrueMCP(e.target.checked)}
-                  />
-                  <span className="mcp-toggle-label">
-                    Use TRUE MCP (LLM-Driven Tool Selection)
-                  </span>
-                </label>
-                <p className="mcp-description">
-                  {useTrueMCP 
-                    ? "LLM will intelligently select tools and strategies based on your request"
-                    : "Uses traditional hardcoded anonymization logic"
-                  }
-                </p>
-              </div>
-
-              {/* User Request Input (only for TRUE MCP) */}
-              {useTrueMCP && (
-                <div className="text-box">
-                  <div className="text-box-header">
-                    <label htmlFor="userRequest">Your Request (for LLM)</label>
-                  </div>
-                  <input
-                    id="userRequest"
-                    type="text"
-                    value={userRequest}
-                    onChange={(e) => setUserRequest(e.target.value)}
-                    placeholder="e.g., 'Anonymize this medical record completely' or 'Partially mask this business email'"
-                    className="text-input user-request-input"
-                  />
-                  <div className="text-meta">
-                    <span>This tells the LLM what you want to achieve</span>
-                  </div>
-                </div>
-              )}
-
               <div className="text-box">
                 <div className="text-box-header">
                   <label htmlFor="inputText">Input Text</label>
@@ -298,21 +254,13 @@ function App() {
                 </div>
               </div>
 
-              {/* LLM Execution Plan (only for TRUE MCP) */}
-              {useTrueMCP && executionPlan && (
+              {/* LLM Execution Plan */}
+              {executionPlan && (
                 <div className="execution-plan-box">
                   <div className="text-box-header">
                     <label>LLM Execution Plan</label>
                   </div>
                   <div className="execution-plan-content">
-                    <div className="plan-summary">
-                      <span className="plan-strategy">Strategy: {executionPlan.strategy}</span>
-                      <span className="plan-confidence">Confidence: {(executionPlan.llm_confidence * 100).toFixed(0)}%</span>
-                    </div>
-                    <div className="plan-reasoning">
-                      <strong>LLM Reasoning:</strong>
-                      <p>{executionPlan.llm_reasoning}</p>
-                    </div>
                     <div className="plan-tools">
                       <strong>Tools Selected:</strong>
                       <ul>
@@ -335,33 +283,8 @@ function App() {
               transition={{ delay: 0.4, duration: 0.5 }}
             >
               <h3 className="section-title">
-                {useTrueMCP ? "Options (LLM will decide final strategy)" : "Redaction Options"}
+                PII Detection Options
               </h3>
-              
-              {!useTrueMCP && (
-                <div className="redaction-toggle">
-                  <label className={`option-pill ${fullRedaction ? 'active' : ''}`}>
-                    <input
-                      type="radio"
-                      name="redactionMode"
-                      value="full"
-                      checked={fullRedaction === true}
-                      onChange={() => setFullRedaction(true)}
-                    />
-                    <span>Full Redaction</span>
-                  </label>
-                  <label className={`option-pill ${!fullRedaction ? 'active' : ''}`}>
-                    <input
-                      type="radio"
-                      name="redactionMode"
-                      value="partial"
-                      checked={fullRedaction === false}
-                      onChange={() => setFullRedaction(false)}
-                    />
-                    <span>Partial Redaction</span>
-                  </label>
-                </div>
-              )}
               
               <div className="pii-options">
                 <div className="pii-header">
