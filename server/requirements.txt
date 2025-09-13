@@ -12,6 +12,7 @@ torch>=2.0.0
 # LLM Support
 openai>=1.0.0
 google-generativeai>=0.3.0
+groq>=0.4.1
 
 # HTTP Client for MCP communication
 aiohttp>=3.8.0

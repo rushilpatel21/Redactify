@@ -11,7 +11,7 @@ import logging
 import time
 import uuid
 from typing import Dict, List, Any, Optional
-import google.generativeai as genai
+from groq import Groq
 from dataclasses import dataclass
 
 logger = logging.getLogger("LLMOrchestrator")
@@ -51,17 +51,16 @@ class LLMOrchestrator:
     
     def _initialize_llm(self):
         """Initialize the LLM for orchestration decisions"""
-        api_key = os.environ.get("GEMINI_API_KEY")
+        api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
-            logger.error("GEMINI_API_KEY not found. LLM orchestration will be disabled.")
+            logger.error("GROQ_API_KEY not found. LLM orchestration will be disabled.")
             return
         
         try:
-            genai.configure(api_key=api_key)
-            self.llm_model = genai.GenerativeModel('gemini-2.5-flash')
-            logger.info("LLM model initialized for orchestration")
+            self.llm_model = Groq(api_key=api_key)
+            logger.info("Groq LLM model initialized for orchestration (llama-3.3-70b-versatile)")
         except Exception as e:
-            logger.error(f"Failed to initialize LLM: {e}")
+            logger.error(f"Failed to initialize Groq LLM: {e}")
     
     def _build_tool_registry(self) -> Dict[str, Dict]:
         """Build registry of available MCP tools with descriptions"""
@@ -203,11 +202,26 @@ class LLMOrchestrator:
         prompt = self._build_orchestration_prompt(user_request, text, options)
         
         try:
-            logger.info("Asking LLM to create execution plan...")
-            response = self.llm_model.generate_content(prompt)
-            content = response.text.strip()
+            logger.info("Asking Groq LLM to create execution plan...")
             
-            logger.debug(f"LLM response: {content}")
+            # Create chat completion with Groq
+            chat_completion = self.llm_model.chat.completions.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                model="llama-3.3-70b-versatile",
+                temperature=0.1,
+                max_tokens=2048,
+                top_p=1,
+                stream=False
+            )
+            
+            content = chat_completion.choices[0].message.content.strip()
+            
+            logger.debug(f"Groq LLM response: {content}")
             
             # Parse LLM response into execution plan
             plan = self._parse_llm_response(content)
@@ -218,7 +232,7 @@ class LLMOrchestrator:
             return plan
             
         except Exception as e:
-            logger.error(f"Error getting LLM execution plan: {e}")
+            logger.error(f"Error getting Groq LLM execution plan: {e}")
             return None
     
     def _build_orchestration_prompt(self, user_request: str, text: str, options: Dict = None) -> str:

@@ -168,7 +168,7 @@ async def anonymize_llm_endpoint(request: Request):
         if not llm_orchestrator:
             return JSONResponse(
                 status_code=503,
-                content={"error": "LLM Orchestrator not available. Check GEMINI_API_KEY configuration."}
+                content={"error": "LLM Orchestrator not available. Check GROQ_API_KEY configuration."}
             )
         
         # Use LLM orchestrator for TRUE MCP implementation
@@ -570,7 +570,7 @@ if __name__ == "__main__":
     print(f"Environment: {os.environ.get('ENVIRONMENT', 'development')}")
     print(f"Max workers: {os.environ.get('MAX_WORKERS', '8')}")
     print(f"Max model memory: {os.environ.get('MAX_MODEL_MEMORY_MB', '4096')}MB")
-    print(f"Gemini API: {'OK' if os.environ.get('GEMINI_API_KEY') else 'NOT SET'}")
+    print(f"Groq API: {'OK' if os.environ.get('GROQ_API_KEY') else 'NOT SET'}")
     print(f"")
     print(f"MCP Servers (auto-started - 3 essential servers):")
     print(f"  • General NER:      http://localhost:3001")
