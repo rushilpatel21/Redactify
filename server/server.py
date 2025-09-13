@@ -157,19 +157,31 @@ async def anonymize_endpoint(request: Request):
         logger.info("Starting entity detection...")
         entities, domains = await detection_engine.detect_entities(text)
         
+        # Step 1.5: Normalize entity types ALWAYS (not just when options provided)
+        normalized_entities = []
+        for entity in entities:
+            entity_type = entity.get('entity_group', '').upper()
+            
+            # Normalize entity types for consistency
+            if entity_type in ['PER', 'PERSON']:
+                entity['entity_group'] = 'PERSON'
+            elif entity_type in ['ORG', 'ORGANIZATION']:
+                entity['entity_group'] = 'ORGANIZATION'  
+            elif entity_type in ['LOC', 'LOCATION']:
+                entity['entity_group'] = 'LOCATION'
+            elif entity_type == 'MISC':
+                # Skip MISC entities as they're often noise
+                continue
+            
+            normalized_entities.append(entity)
+
+        entities = normalized_entities
+        
         # Filter entities based on options (if provided)
         if options:
             filtered_entities = []
             for entity in entities:
                 entity_type = entity.get('entity_group', '').upper()
-                # Map some entity types for compatibility
-                if entity_type in ['PER', 'PERSON']:
-                    entity_type = 'PERSON'
-                elif entity_type in ['ORG', 'ORGANIZATION']:
-                    entity_type = 'ORGANIZATION'
-                elif entity_type in ['LOC', 'LOCATION']:
-                    entity_type = 'LOCATION'
-                
                 # Check if this entity type is enabled
                 if options.get(entity_type, True):
                     filtered_entities.append(entity)
@@ -250,19 +262,31 @@ async def anonymize_batch_endpoint(request: Request):
         for i, (entities, domains) in enumerate(batch_results):
             text = texts[i]
             
+            # Normalize entity types ALWAYS (not just when options provided)
+            normalized_entities = []
+            for entity in entities:
+                entity_type = entity.get('entity_group', '').upper()
+                
+                # Normalize entity types for consistency
+                if entity_type in ['PER', 'PERSON']:
+                    entity['entity_group'] = 'PERSON'
+                elif entity_type in ['ORG', 'ORGANIZATION']:
+                    entity['entity_group'] = 'ORGANIZATION'  
+                elif entity_type in ['LOC', 'LOCATION']:
+                    entity['entity_group'] = 'LOCATION'
+                elif entity_type == 'MISC':
+                    # Skip MISC entities as they're often noise
+                    continue
+                
+                normalized_entities.append(entity)
+
+            entities = normalized_entities
+            
             # Filter entities based on options (if provided)
             if options:
                 filtered_entities = []
                 for entity in entities:
                     entity_type = entity.get('entity_group', '').upper()
-                    # Map some entity types for compatibility
-                    if entity_type in ['PER', 'PERSON']:
-                        entity_type = 'PERSON'
-                    elif entity_type in ['ORG', 'ORGANIZATION']:
-                        entity_type = 'ORGANIZATION'
-                    elif entity_type in ['LOC', 'LOCATION']:
-                        entity_type = 'LOCATION'
-                    
                     # Check if this entity type is enabled
                     if options.get(entity_type, True):
                         filtered_entities.append(entity)
