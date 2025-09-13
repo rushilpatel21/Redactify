@@ -3,7 +3,7 @@ import logging
 import time
 import uuid
 import json
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from typing import List, Any, Dict, Optional
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -29,9 +29,7 @@ except Exception as e:
 
 # --- MCP Server Setup ---
 mcp = FastMCP(
-    name="LLMClassifier",
-    version="1.0.0",
-    description="LLM-based text classifier for intelligent PII detection routing"
+    name="LLMClassifier"
 )
 
 # --- Classification Logic ---

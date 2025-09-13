@@ -3,7 +3,7 @@ import logging
 import time
 import uuid
 import json
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from typing import List, Any, Dict, Optional
 from transformers import pipeline
 from dotenv import load_dotenv
@@ -39,9 +39,7 @@ except Exception as e:
 # --- MCP Server Setup ---
 logger.info(f"[{AGENT_ID}] Initializing FastMCP server")
 mcp = FastMCP(
-    name="LegalNERAgent", 
-    version="1.0.0",
-    description="Legal Named Entity Recognition agent"
+    name="LegalNERAgent"
 )
 logger.info(f"[{AGENT_ID}] FastMCP initialized")
 

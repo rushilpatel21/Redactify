@@ -336,7 +336,7 @@ graph TD
 
 **Input:**
 ```
-This agreement is made between Generic & Associates (email: john.doe@example.com, phone: 555-123-4567) and Mr. John Smith (SSN: 123-45-6789).
+This agreement is made between Generic & Associates (john.doe@example.com, 555-123-4567) and Mr. John Smith.
 ```
 
 **Output:**
