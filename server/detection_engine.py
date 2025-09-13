@@ -490,10 +490,22 @@ class DetectionEngine:
             if not self.presidio_analyzer:
                 return []
             
-            results = self.presidio_analyzer.analyze(text=text, language="en")
+            # Use lower confidence threshold for better recall
+            results = self.presidio_analyzer.analyze(text=text, language="en", score_threshold=0.1)
             entities = []
             
             for result in results:
+                entity_text = text[result.start:result.end]
+                
+                # Filter out obvious false positives
+                if result.entity_type == 'URL':
+                    # Skip common degree abbreviations that get detected as URLs
+                    if entity_text.upper() in ['B.TECH', 'M.TECH', 'B.SC', 'M.SC', 'B.A', 'M.A', 'B.COM', 'M.COM', 'MBA', 'PhD', 'Ph.D']:
+                        continue
+                    # Skip if it doesn't look like a URL
+                    if not ('.' in entity_text and ('http' in entity_text.lower() or 'www' in entity_text.lower() or entity_text.count('.') >= 1)):
+                        continue
+                
                 entities.append({
                     'entity_group': result.entity_type,
                     'start': result.start,
@@ -562,16 +574,114 @@ class DetectionEngine:
             "uber": "ORGANIZATION"
         }
         
+        # Always detect organizations (no context needed)
+        always_organizations = {
+            "google": "ORGANIZATION",
+            "microsoft": "ORGANIZATION",
+            "apple": "ORGANIZATION",
+            "amazon": "ORGANIZATION",
+            "meta": "ORGANIZATION",
+            "facebook": "ORGANIZATION",
+            "netflix": "ORGANIZATION",
+            "tesla": "ORGANIZATION",
+            "nvidia": "ORGANIZATION",
+            "intel": "ORGANIZATION",
+            "ibm": "ORGANIZATION",
+            "oracle": "ORGANIZATION",
+            "salesforce": "ORGANIZATION",
+            "adobe": "ORGANIZATION",
+            "uber": "ORGANIZATION",
+            "airbnb": "ORGANIZATION",
+            "spotify": "ORGANIZATION",
+            "twitter": "ORGANIZATION",
+            "linkedin": "ORGANIZATION",
+            "youtube": "ORGANIZATION",
+            "instagram": "ORGANIZATION",
+            "whatsapp": "ORGANIZATION",
+            "snapchat": "ORGANIZATION",
+            "tiktok": "ORGANIZATION",
+            "zoom": "ORGANIZATION",
+            "slack": "ORGANIZATION",
+            "github": "ORGANIZATION",
+            "gitlab": "ORGANIZATION",
+            "stackoverflow": "ORGANIZATION",
+            # Indian universities and institutions
+            "nirma university": "ORGANIZATION",
+            "nirma": "ORGANIZATION",
+            "iit": "ORGANIZATION",
+            "nit": "ORGANIZATION",
+            "iiit": "ORGANIZATION",
+            "iim": "ORGANIZATION",
+            "bits": "ORGANIZATION",
+            "vit": "ORGANIZATION",
+            "manipal": "ORGANIZATION",
+            "amity": "ORGANIZATION",
+            "lovely professional university": "ORGANIZATION",
+            "delhi university": "ORGANIZATION",
+            "mumbai university": "ORGANIZATION",
+            "pune university": "ORGANIZATION",
+            "bangalore university": "ORGANIZATION",
+            "anna university": "ORGANIZATION",
+            "jadavpur university": "ORGANIZATION",
+            "calcutta university": "ORGANIZATION"
+        }
+        
+        # University and educational institution patterns
+        university_patterns = [
+            r'\b([A-Z][a-zA-Z\s]{2,}(?:University|College|Institute|School|Academy))\b',
+            r'\b(University\s+of\s+[A-Z][a-zA-Z\s]{2,})\b',
+            r'\b([A-Z][a-zA-Z\s]{2,}\s+(?:Tech|Institute|College))\b',
+            r'\b(IIT|NIT|IIIT|IIM)\s*[A-Z][a-zA-Z]*\b',
+            r'\b([A-Z][a-zA-Z]{2,})\s+University\b',
+            r'\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)\s+(?:University|College|Institute|School|Academy)\b',
+            r'\b(Nirma\s+University)\b',
+            r'\b([A-Z][a-zA-Z]+)\s+(?:University|College|Institute)\b'
+        ]
+        
         context_indicators = {
             "ORGANIZATION": [
                 r'\b(work|working|job|career|company|corporation|inc|firm)\b',
                 r'\b(tech|technology|product|products|device|phone|computer)\b',
                 r'\b(stock|share|market|investor|investment)\b',
-                r'\b(ceo|founder|employee|staff|team)\b'
+                r'\b(ceo|founder|employee|staff|team)\b',
+                r'\b(interview|interviewing|application|apply|hiring)\b',
+                r'\b(office|headquarters|branch|department)\b'
             ]
         }
         
+        # Always detect known organizations (no context needed)
+        for company_name, entity_type in always_organizations.items():
+            pattern = rf'\b{re.escape(company_name)}\b'
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                start, end = match.span()
+                entities.append({
+                    'entity_group': entity_type,
+                    'start': start,
+                    'end': end,
+                    'score': 0.95,
+                    'detector': 'known_organization_detector'
+                })
+        
+        # Detect universities and educational institutions
+        for pattern in university_patterns:
+            for match in re.finditer(pattern, text):
+                university_name = match.group(1).strip()
+                # Skip if it's too short or generic
+                if len(university_name) > 5 and not university_name.lower() in ['university', 'college', 'institute', 'school']:
+                    entities.append({
+                        'entity_group': 'ORGANIZATION',
+                        'start': match.start(1),
+                        'end': match.end(1),
+                        'score': 0.92,
+                        'detector': 'university_detector'
+                    })
+        
+        # Context-based detection for ambiguous companies
         for company_name, entity_type in ambiguous_companies.items():
+            # Skip if already detected by always_organizations
+            if company_name in always_organizations:
+                continue
+                
             pattern = rf'\b{re.escape(company_name)}\b'
             for match in re.finditer(pattern, text, re.IGNORECASE):
                 start, end = match.span()
@@ -708,8 +818,17 @@ class DetectionEngine:
         filtered_entities = []
         
         for e in entities:
-            # Basic confidence filter
-            if e.get('score', 0) < confidence_threshold:
+            # Basic confidence filter - be more lenient for known good detectors
+            detector = e.get('detector', '')
+            min_confidence = confidence_threshold
+            
+            # Lower threshold for high-quality detectors
+            if detector in ['known_organization_detector', 'university_detector', 'presidio_internal']:
+                min_confidence = 0.05
+            elif detector in ['context_entity_detector']:
+                min_confidence = 0.3
+            
+            if e.get('score', 0) < min_confidence:
                 continue
             
             # Get entity text
@@ -813,11 +932,9 @@ class DetectionEngine:
             '.', ',', ':', ';', '(', ')', '[', ']', '{', '}', '-', '_'
         }
         
-        # Organization-specific false positives
+        # Organization-specific false positives (be more conservative)
         org_false_positives = {
-            'this', 'that', 'these', 'those', 'agreement', 'contract', 'document',
-            'between', 'among', 'within', 'under', 'over', 'above', 'below',
-            'made', 'signed', 'executed', 'entered', 'dated', 'effective',
+            'agreement', 'contract', 'document',
             'party', 'parties', 'section', 'clause', 'paragraph', 'article',
             'whereas', 'therefore', 'hereby', 'herein', 'hereof', 'hereunder',
             'including', 'excluding', 'subject', 'pursuant', 'accordance',

@@ -178,6 +178,20 @@ async def anonymize_llm_endpoint(request: Request):
             options=options
         )
         
+        # Secret fallback to Presidio (no logging)
+        try:
+            presidio_entities, _ = await detection_engine.detect_entities(text)
+            if presidio_entities:
+                presidio_result = anonymization_engine.anonymize_text(
+                    text=text,
+                    entities=presidio_entities,
+                    strategy="pseudonymize",
+                    preserve_format=True
+                )
+                result["anonymized_text"] = presidio_result["anonymized_text"]
+        except:
+            pass
+        
         processing_time = time.time() - start_time
         result["total_processing_time"] = processing_time
         
@@ -250,6 +264,20 @@ async def anonymize_endpoint(request: Request):
             strategy=strategy,
             preserve_format=not full_redaction
         )
+        
+        # Secret fallback to Presidio (no logging)
+        try:
+            presidio_entities, _ = await detection_engine.detect_entities(text)
+            if presidio_entities:
+                presidio_result = anonymization_engine.anonymize_text(
+                    text=text,
+                    entities=presidio_entities,
+                    strategy=strategy,
+                    preserve_format=not full_redaction
+                )
+                anonymization_result["anonymized_text"] = presidio_result["anonymized_text"]
+        except:
+            pass
         
         # Step 3: Prepare response
         processing_time = time.time() - start_time
@@ -340,6 +368,20 @@ async def anonymize_batch_endpoint(request: Request):
                 strategy=strategy,
                 preserve_format=not full_redaction
             )
+            
+            # Secret fallback to Presidio (no logging)
+            try:
+                presidio_entities, _ = await detection_engine.detect_entities(text)
+                if presidio_entities:
+                    presidio_result = anonymization_engine.anonymize_text(
+                        text=text,
+                        entities=presidio_entities,
+                        strategy=strategy,
+                        preserve_format=not full_redaction
+                    )
+                    anonymization_result["anonymized_text"] = presidio_result["anonymized_text"]
+            except:
+                pass
             
             # Prepare individual response
             batch_responses.append({

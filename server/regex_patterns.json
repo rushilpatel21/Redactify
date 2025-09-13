@@ -57,5 +57,10 @@
     {"type": "MEDICAL", "pattern": "Provider ID:?\\s*([A-Za-z0-9\\-]+)", "context": []},
     {"type": "ID_NUMBER", "pattern": "\\b(?:passport|driver|license|id)\\s+(?:number|#):\\s*([A-Za-z0-9\\-]+)", "context": []},
     {"type": "ID_NUMBER", "pattern": "\\b[A-Z]{1,2}[0-9]{6,9}\\b", "context": ["passport", "government", "license", "identification"]},
-    {"type": "ID_NUMBER", "pattern": "Employee\\s+ID:?\\s*([A-Za-z0-9\\-]+)", "context": []}
+    {"type": "ID_NUMBER", "pattern": "Employee\\s+ID:?\\s*([A-Za-z0-9\\-]+)", "context": []},
+    {"type": "ORGANIZATION", "pattern": "\\b([A-Z][a-zA-Z\\s&]{2,}(?:University|College|Institute|School|Academy|Corp|Corporation|Inc|LLC|Ltd|Company|Group|Technologies|Tech|Systems|Solutions|Services))\\b", "context": []},
+    {"type": "ORGANIZATION", "pattern": "\\b(University\\s+of\\s+[A-Z][a-zA-Z\\s]{2,})\\b", "context": []},
+    {"type": "ORGANIZATION", "pattern": "\\b([A-Z][a-zA-Z\\s]{2,}\\s+(?:University|College|Institute|School|Academy))\\b", "context": []},
+    {"type": "ORGANIZATION", "pattern": "\\b(IIT|NIT|IIIT|IIM)\\s*[A-Z][a-zA-Z]*\\b", "context": []},
+    {"type": "ORGANIZATION", "pattern": "\\b([A-Z][a-zA-Z]{2,})\\s+University\\b", "context": []}
 ]
