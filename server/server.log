@@ -352,3 +352,57 @@ INFO:     127.0.0.1:54827 - "POST /mcp HTTP/1.1" 200 OK
 2025-10-14 21:46:46,319 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][d9a7434d] EXIT: health_check function completed
 2025-10-14 21:46:46,319 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4cb6b9cb] Returning health check response
 INFO:     127.0.0.1:54829 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:47:46,325 - A2AGeneralNER - INFO - [a2a_ner_general][b246bc52] Received MCP request
+2025-10-14 21:47:46,326 - A2AGeneralNER - INFO - [a2a_ner_general][b246bc52] Parsing request JSON
+2025-10-14 21:47:46,326 - A2AGeneralNER - INFO - [a2a_ner_general][b246bc52] Processing JSON-RPC method: health_check
+2025-10-14 21:47:46,326 - A2AGeneralNER - INFO - [a2a_ner_general][b246bc52] Calling health_check
+2025-10-14 21:47:46,326 - A2AGeneralNER - INFO - [a2a_ner_general][e6a87daf] ENTRY: health_check function called
+2025-10-14 21:47:46,326 - A2AGeneralNER - INFO - [a2a_ner_general][e6a87daf] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 16:17:46'}
+2025-10-14 21:47:46,326 - A2AGeneralNER - INFO - [a2a_ner_general][e6a87daf] EXIT: health_check function completed
+2025-10-14 21:47:46,326 - A2AGeneralNER - INFO - [a2a_ner_general][b246bc52] Returning health check response
+INFO:     127.0.0.1:54844 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:47:46,330 - A2AMedicalNER - INFO - [a2a_ner_medical][5066baac] Received MCP request
+2025-10-14 21:47:46,330 - A2AMedicalNER - INFO - [a2a_ner_medical][5066baac] Parsing request JSON
+2025-10-14 21:47:46,330 - A2AMedicalNER - INFO - [a2a_ner_medical][5066baac] Processing JSON-RPC method: health_check
+2025-10-14 21:47:46,330 - A2AMedicalNER - INFO - [a2a_ner_medical][5066baac] Calling health_check
+2025-10-14 21:47:46,330 - A2AMedicalNER - INFO - [a2a_ner_medical][212403b7] ENTRY: health_check function called
+2025-10-14 21:47:46,331 - A2AMedicalNER - INFO - [a2a_ner_medical][212403b7] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 16:17:46'}
+2025-10-14 21:47:46,331 - A2AMedicalNER - INFO - [a2a_ner_medical][212403b7] EXIT: health_check function completed
+2025-10-14 21:47:46,331 - A2AMedicalNER - INFO - [a2a_ner_medical][5066baac] Returning health check response
+INFO:     127.0.0.1:54846 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:47:46,334 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4976cdc5] Received MCP request
+2025-10-14 21:47:46,334 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4976cdc5] Parsing request JSON
+2025-10-14 21:47:46,334 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4976cdc5] Processing JSON-RPC method: health_check
+2025-10-14 21:47:46,334 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4976cdc5] Calling health_check
+2025-10-14 21:47:46,334 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][1cc40ec1] ENTRY: health_check function called
+2025-10-14 21:47:46,334 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][1cc40ec1] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 16:17:46'}
+2025-10-14 21:47:46,334 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][1cc40ec1] EXIT: health_check function completed
+2025-10-14 21:47:46,334 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4976cdc5] Returning health check response
+INFO:     127.0.0.1:54848 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:48:46,338 - A2AGeneralNER - INFO - [a2a_ner_general][a47e6340] Received MCP request
+2025-10-14 21:48:46,338 - A2AGeneralNER - INFO - [a2a_ner_general][a47e6340] Parsing request JSON
+2025-10-14 21:48:46,338 - A2AGeneralNER - INFO - [a2a_ner_general][a47e6340] Processing JSON-RPC method: health_check
+2025-10-14 21:48:46,338 - A2AGeneralNER - INFO - [a2a_ner_general][a47e6340] Calling health_check
+2025-10-14 21:48:46,338 - A2AGeneralNER - INFO - [a2a_ner_general][a71b82ad] ENTRY: health_check function called
+2025-10-14 21:48:46,338 - A2AGeneralNER - INFO - [a2a_ner_general][a71b82ad] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 16:18:46'}
+2025-10-14 21:48:46,338 - A2AGeneralNER - INFO - [a2a_ner_general][a71b82ad] EXIT: health_check function completed
+2025-10-14 21:48:46,338 - A2AGeneralNER - INFO - [a2a_ner_general][a47e6340] Returning health check response
+INFO:     127.0.0.1:54866 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:48:46,339 - A2AMedicalNER - INFO - [a2a_ner_medical][06adc507] Received MCP request
+2025-10-14 21:48:46,339 - A2AMedicalNER - INFO - [a2a_ner_medical][06adc507] Parsing request JSON
+2025-10-14 21:48:46,339 - A2AMedicalNER - INFO - [a2a_ner_medical][06adc507] Processing JSON-RPC method: health_check
+2025-10-14 21:48:46,339 - A2AMedicalNER - INFO - [a2a_ner_medical][06adc507] Calling health_check
+2025-10-14 21:48:46,340 - A2AMedicalNER - INFO - [a2a_ner_medical][425a9d59] ENTRY: health_check function called
+2025-10-14 21:48:46,340 - A2AMedicalNER - INFO - [a2a_ner_medical][425a9d59] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 16:18:46'}
+2025-10-14 21:48:46,340 - A2AMedicalNER - INFO - [a2a_ner_medical][425a9d59] EXIT: health_check function completed
+2025-10-14 21:48:46,340 - A2AMedicalNER - INFO - [a2a_ner_medical][06adc507] Returning health check response
+INFO:     127.0.0.1:54868 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:48:46,341 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][52a45859] Received MCP request
+2025-10-14 21:48:46,341 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][52a45859] Parsing request JSON
+2025-10-14 21:48:46,341 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][52a45859] Processing JSON-RPC method: health_check
+2025-10-14 21:48:46,341 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][52a45859] Calling health_check
+2025-10-14 21:48:46,341 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3f4abf3b] ENTRY: health_check function called
+2025-10-14 21:48:46,341 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3f4abf3b] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 16:18:46'}
+2025-10-14 21:48:46,341 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3f4abf3b] EXIT: health_check function completed
+2025-10-14 21:48:46,341 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][52a45859] Returning health check response
+INFO:     127.0.0.1:54870 - "POST /mcp HTTP/1.1" 200 OK
