@@ -162,7 +162,7 @@ The server will automatically:
 
 ```bash
 # Navigate to client directory
-cd client
+cd client 
 
 # Install dependencies
 npm install
