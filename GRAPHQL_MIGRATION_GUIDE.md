@@ -15,7 +15,7 @@ This guide covers the migration from REST API to GraphQL, providing a modern, ty
 7. [Best Practices](#best-practices)
 8. [Troubleshooting](#troubleshooting)
 
----
+--- 
 
 ## Why GraphQL?
 
