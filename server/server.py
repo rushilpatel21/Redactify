@@ -4,6 +4,8 @@ Redactify Server - Main Entry Point
 
 This is the main server that provides PII detection and anonymization services
 using the new MCP architecture with improved performance and accuracy.
+
+Now with GraphQL support for modern API access!
 """
 
 import asyncio
@@ -27,6 +29,8 @@ from mcp_client import MCPClientManager, MCPServerConfig
 from model_manager import get_model_manager
 # Auto MCP manager import
 from auto_mcp_manager import get_auto_mcp_manager
+# GraphQL server
+from graphql_server import create_graphql_router, get_example_queries
 # Instantiate auto MCP manager
 auto_mcp_manager = get_auto_mcp_manager()
 
@@ -44,7 +48,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("RedactifyServer")
 
 # Initialize FastAPI app
-app = FastAPI(title="Redactify Server", version="2.0")
+app = FastAPI(
+    title="Redactify Server",
+    version="2.0",
+    description="Advanced PII Anonymization Platform with REST and GraphQL APIs"
+)
+
 # Configure CORS for frontend development ports
 app.add_middleware(
     CORSMiddleware,
@@ -56,6 +65,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add GraphQL router
+graphql_router = create_graphql_router()
+app.include_router(graphql_router, prefix="", tags=["GraphQL"])
 
 @app.on_event("startup")
 async def startup_event():
@@ -127,7 +140,32 @@ async def root():
         "message": "Redactify Server is running",
         "version": "2.0",
         "architecture": "MCP",
+        "apis": {
+            "rest": {
+                "anonymize": "POST /anonymize",
+                "anonymize_batch": "POST /anonymize_batch",
+                "detect": "POST /detect",
+                "health": "GET /health",
+                "mcp_status": "GET /mcp-status",
+                "config": "GET /config"
+            },
+            "graphql": {
+                "endpoint": "/graphql",
+                "playground": "/graphql (interactive UI)",
+                "documentation": "GET /graphql/examples"
+            }
+        },
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    }
+
+
+@app.get("/graphql/examples")
+async def graphql_examples():
+    """Get GraphQL example queries"""
+    return {
+        "message": "GraphQL Example Queries",
+        "playground_url": "/graphql",
+        "examples": get_example_queries()
     }
 
 @app.post("/anonymize")

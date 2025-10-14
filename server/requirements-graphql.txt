@@ -1,0 +1,13 @@
+# GraphQL dependencies for Redactify Server
+# Add these to your existing requirements.txt
+
+# Strawberry GraphQL - Modern, type-safe GraphQL for Python
+strawberry-graphql[fastapi]==0.219.0
+
+# Optional: For GraphQL subscriptions (WebSocket support)
+strawberry-graphql[channels]==0.219.0
+
+# Already included in base requirements but needed for GraphQL:
+# fastapi>=0.95.0
+# uvicorn>=0.20.0
+# pydantic>=1.10.0

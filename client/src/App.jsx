@@ -10,7 +10,8 @@ import { RiMoneyDollarCircleLine } from 'react-icons/ri';
 import Swal from 'sweetalert2';
 import './App.css';
 
-const BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL || "";
+// GraphQL imports
+import { useAnonymize } from './graphql/hooks';
 
 const piiTypes = [
   { id: "PERSON", icon: <MdPersonOutline /> },
@@ -60,8 +61,10 @@ function App() {
     piiTypes.reduce((acc, type) => ({ ...acc, [type.id]: true }), {})
   );
   const [fullRedaction, setFullRedaction] = useState(true);
-  const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  
+  // Use GraphQL hook instead of fetch
+  const { anonymize, loading } = useAnonymize();
 
   const handleOptionChange = (e) => {
     const { name, checked } = e.target;
@@ -79,41 +82,31 @@ function App() {
       return;
     }
     
-    setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/anonymize`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          text: inputText,
-          options: options,
-          full_redaction: fullRedaction
-        })
-      });
-      const data = await response.json();
-      if (data.anonymized_text) {
-        setOutputText(data.anonymized_text);
+      // Use GraphQL mutation instead of REST fetch
+      const result = await anonymize(inputText, options, fullRedaction);
+      
+      if (result?.anonymizedText) {
+        setOutputText(result.anonymizedText);
         Toast.fire({
           icon: 'success',
-          title: 'Text anonymized successfully',
+          title: `Text anonymized successfully! Found ${result.entitiesProcessed} entities in ${result.processingTime.toFixed(2)}s`,
         });
       } else {
-        setOutputText("Error: " + data.error);
+        setOutputText("Error: No result returned");
         Toast.fire({
           icon: 'error',
-          title: data.error || 'Something went wrong',
+          title: 'Something went wrong',
         });
       }
     } catch (err) {
-      setOutputText("An error occurred: " + err.message);
+      const errorMessage = err.message || 'An error occurred';
+      setOutputText("An error occurred: " + errorMessage);
       Toast.fire({
         icon: 'error',
-        title: err.message,
+        title: errorMessage,
       });
     }
-    setLoading(false);
   };
 
   const copyToClipboard = () => {

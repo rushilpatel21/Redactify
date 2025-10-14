@@ -1,0 +1,598 @@
+GEMINI_API_KEY environment variable not set. Gemini classification will be disabled.
+2025-10-14 21:10:13,236 - GraphQLServer - INFO - GraphQL router created successfully
+2025-10-14 21:10:13,236 - GraphQLServer - INFO - GraphQL Playground available at /graphql
+/Users/rushilpatel/Desktop/Github/Redactify/server/server.py:73: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/Users/rushilpatel/Desktop/Github/Redactify/server/server.py:117: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [22527]
+INFO:     Waiting for application startup.
+2025-10-14 21:10:13,286 - RedactifyServer - INFO - === Starting Redactify MCP System ===
+2025-10-14 21:10:13,286 - RedactifyServer - INFO - Step 1: Starting MCP servers automatically...
+2025-10-14 21:10:13,304 - AutoMCPManager - INFO - Started MCP agent 'general' on port 3001 (pid=22653)
+2025-10-14 21:10:13,316 - AutoMCPManager - INFO - Started MCP agent 'medical' on port 3002 (pid=22655)
+2025-10-14 21:10:13,329 - AutoMCPManager - INFO - Started MCP agent 'pii_specialized' on port 3006 (pid=22657)
+2025-10-14 21:10:18,331 - RedactifyServer - INFO - Step 2: Initializing MCP client connections...
+2025-10-14 21:10:18,331 - MCPClient - INFO - Initialized MCP Client Manager
+2025-10-14 21:10:18,331 - MCPClient - INFO - Initialized MCP client for general at http://localhost:3001
+2025-10-14 21:10:18,331 - MCPClient - INFO - Added MCP server: general at http://localhost:3001
+2025-10-14 21:10:18,331 - MCPClient - INFO - Initialized MCP client for medical at http://localhost:3002
+2025-10-14 21:10:18,331 - MCPClient - INFO - Added MCP server: medical at http://localhost:3002
+2025-10-14 21:10:18,331 - MCPClient - INFO - Initialized MCP client for pii_specialized at http://localhost:3006
+2025-10-14 21:10:18,331 - MCPClient - INFO - Added MCP server: pii_specialized at http://localhost:3006
+2025-10-14 21:10:18,331 - DetectionEngine - INFO - MCP client manager configured for DetectionEngine
+2025-10-14 21:10:18,331 - RedactifyServer - INFO - ✓ MCP client connections established
+2025-10-14 21:10:18,331 - RedactifyServer - INFO - ✓ Server startup complete
+2025-10-14 21:10:18,331 - RedactifyServer - INFO - === Redactify MCP System Ready ===
+2025-10-14 21:10:18,331 - RedactifyServer - INFO - ✓ MCP server monitoring started
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2025-10-14 21:10:18,953 - A2ASpecializedPII - INFO - Logging initialized at INFO level
+2025-10-14 21:10:18,954 - A2AGeneralNER - INFO - Logging initialized at INFO level
+2025-10-14 21:10:18,954 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized] Starting model load: 1-13-am/xlm-roberta-base-pii-finetuned
+2025-10-14 21:10:18,954 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized] Step 1: Setting up model pipeline
+2025-10-14 21:10:18,954 - A2AGeneralNER - INFO - [a2a_ner_general] Starting model load: dbmdz/bert-large-cased-finetuned-conll03-english
+2025-10-14 21:10:18,954 - A2AMedicalNER - INFO - Logging initialized at INFO level
+2025-10-14 21:10:18,954 - A2AGeneralNER - INFO - [a2a_ner_general] Step 1: Setting up model pipeline
+2025-10-14 21:10:18,954 - A2AMedicalNER - INFO - [a2a_ner_medical] Starting model load
+2025-10-14 21:10:18,954 - A2AMedicalNER - INFO - [a2a_ner_medical] Setting up model pipeline: obi/deid_roberta_i2b2
+Some weights of the model checkpoint at dbmdz/bert-large-cased-finetuned-conll03-english were not used when initializing BertForTokenClassification: ['bert.pooler.dense.bias', 'bert.pooler.dense.weight']
+- This IS expected if you are initializing BertForTokenClassification from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing BertForTokenClassification from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Device set to use mps:0
+Device set to use mps:0
+Device set to use mps:0
+2025-10-14 21:10:21,082 - GraphQLResolvers - INFO - GraphQL: Resolving health query
+=== Redactify Server v2.0 ===
+Architecture: MCP (Model Context Protocol)
+Auto-Management: MCP servers will start automatically
+Serving on: http://0.0.0.0:8000
+Debug mode: False
+Environment: development
+Max workers: 8
+Max model memory: 4096MB
+Gemini API: OK
+
+MCP Servers (auto-started - 3 essential servers):
+  • General NER:      http://localhost:3001
+  • Medical NER:      http://localhost:3002
+  • PII Specialized:  http://localhost:3006
+  (Technical, Legal, Financial servers disabled for testing)
+
+Health Check: http://localhost:8000/health
+MCP Status:   http://localhost:8000/mcp-status
+=============================
+INFO:     127.0.0.1:52471 - "POST /graphql HTTP/1.1" 200 OK
+2025-10-14 21:10:22,350 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized] Step 2: Model loaded successfully in 3.39s
+2025-10-14 21:10:22,367 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized] Initializing FastMCP server
+2025-10-14 21:10:22,397 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized] FastMCP initialized
+2025-10-14 21:10:22,442 - A2AGeneralNER - INFO - [a2a_ner_general] Step 2: Model loaded successfully in 3.49s
+2025-10-14 21:10:22,621 - A2AMedicalNER - INFO - [a2a_ner_medical] Model loaded successfully in 3.67s
+2025-10-14 21:10:22,860 - A2AGeneralNER - INFO - [a2a_ner_general] Initializing FastMCP server
+2025-10-14 21:10:22,861 - A2AMedicalNER - INFO - [a2a_ner_medical] Initializing FastMCP server
+2025-10-14 21:10:22,960 - A2AGeneralNER - INFO - [a2a_ner_general] FastMCP initialized
+2025-10-14 21:10:22,960 - A2AMedicalNER - INFO - [a2a_ner_medical] FastMCP initialized
+2025-10-14 21:10:23,100 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized] Starting server on port 3006
+2025-10-14 21:10:23,101 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized] Server initialization complete
+2025-10-14 21:10:23,101 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized] Starting uvicorn server on 0.0.0.0:3006
+2025-10-14 21:10:23,147 - A2AGeneralNER - INFO - [a2a_ner_general] Starting server on port 3001
+2025-10-14 21:10:23,147 - A2AGeneralNER - INFO - [a2a_ner_general] Server initialization complete
+2025-10-14 21:10:23,147 - A2AGeneralNER - INFO - [a2a_ner_general] Starting uvicorn server on 0.0.0.0:3001
+2025-10-14 21:10:23,152 - A2AMedicalNER - INFO - [a2a_ner_medical] Starting server on port 3002
+2025-10-14 21:10:23,153 - A2AMedicalNER - INFO - [a2a_ner_medical] Server initialization complete
+2025-10-14 21:10:23,153 - A2AMedicalNER - INFO - [a2a_ner_medical] Starting uvicorn server on 0.0.0.0:3002
+INFO:     Started server process [22657]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:3006 (Press CTRL+C to quit)
+INFO:     Started server process [22653]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:3001 (Press CTRL+C to quit)
+INFO:     Started server process [22655]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:3002 (Press CTRL+C to quit)
+2025-10-14 21:10:31,537 - GraphQLResolvers - INFO - GraphQL: Resolving anonymize mutation (text length: 26)
+2025-10-14 21:10:31,537 - DetectionEngine - INFO - Processing text with domains: ['general']
+2025-10-14 21:10:31,538 - presidio-analyzer - INFO - Fetching all recognizers for language en
+2025-10-14 21:10:31,564 - A2AGeneralNER - INFO - [a2a_ner_general][1a07e320] Received MCP request
+2025-10-14 21:10:31,564 - A2AGeneralNER - INFO - [a2a_ner_general][1a07e320] Parsing request JSON
+2025-10-14 21:10:31,564 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5b6ae7f0] Received MCP request
+2025-10-14 21:10:31,564 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5b6ae7f0] Parsing request JSON
+2025-10-14 21:10:31,564 - A2AGeneralNER - INFO - [a2a_ner_general][1a07e320] Processing JSON-RPC method: predict
+2025-10-14 21:10:31,564 - A2AGeneralNER - INFO - [a2a_ner_general][1a07e320] Calling predict with text length: 26
+2025-10-14 21:10:31,564 - A2AGeneralNER - INFO - [a2a_ner_general][e66b009a] ENTRY: predict function called
+2025-10-14 21:10:31,564 - A2AGeneralNER - INFO - [a2a_ner_general][e66b009a] Processing text of length 26
+2025-10-14 21:10:31,564 - A2AGeneralNER - INFO - [a2a_ner_general][e66b009a] Step 1: Starting entity detection in thread pool
+2025-10-14 21:10:31,564 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5b6ae7f0] Processing JSON-RPC method: predict
+2025-10-14 21:10:31,564 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5b6ae7f0] Calling predict with text length: 26
+2025-10-14 21:10:31,564 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][c9fd8cfc] ENTRY: predict function called
+2025-10-14 21:10:31,564 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][c9fd8cfc] Processing text of length 26
+2025-10-14 21:10:31,564 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][c9fd8cfc] Step 1: Starting entity detection
+2025-10-14 21:10:32,199 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][c9fd8cfc] Step 2: Detection completed in 0.63s
+2025-10-14 21:10:32,199 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][c9fd8cfc] Step 3: Processing 1 entities
+2025-10-14 21:10:32,199 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][c9fd8cfc] Step 4: Processing completed, returning 1 entities in 0.63s
+2025-10-14 21:10:32,199 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][c9fd8cfc] Entity types found: {'NAME_STUDENT': 1}
+2025-10-14 21:10:32,199 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][c9fd8cfc] EXIT: predict function completed successfully
+2025-10-14 21:10:32,199 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5b6ae7f0] predict completed in 0.63s, found 1 entities
+2025-10-14 21:10:32,199 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5b6ae7f0] Returning response
+INFO:     127.0.0.1:52486 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:10:32,238 - A2AGeneralNER - INFO - [a2a_ner_general][e66b009a] Step 2: Detection completed in 0.67s
+2025-10-14 21:10:32,238 - A2AGeneralNER - INFO - [a2a_ner_general][e66b009a] Step 3: Processing 2 entities
+2025-10-14 21:10:32,238 - A2AGeneralNER - INFO - [a2a_ner_general][e66b009a] Step 4: Processing completed, returning 2 entities in 0.67s
+2025-10-14 21:10:32,238 - A2AGeneralNER - INFO - [a2a_ner_general][e66b009a] Entity types found: {'PER': 1, 'ORG': 1}
+2025-10-14 21:10:32,238 - A2AGeneralNER - INFO - [a2a_ner_general][e66b009a] EXIT: predict function completed successfully
+2025-10-14 21:10:32,238 - A2AGeneralNER - INFO - [a2a_ner_general][1a07e320] predict completed in 0.67s, found 2 entities
+2025-10-14 21:10:32,238 - A2AGeneralNER - INFO - [a2a_ner_general][1a07e320] Returning response
+INFO:     127.0.0.1:52485 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:10:32,239 - DetectionEngine - INFO - Detection completed in 0.70s. Found 2 entities
+2025-10-14 21:10:32,239 - AnonymizationEngine - INFO - Anonymizing text of length 26 with 2 entities using strategy: pseudonymize
+2025-10-14 21:10:32,239 - AnonymizationEngine - INFO - Anonymization completed: 2 entities processed
+INFO:     127.0.0.1:52482 - "POST /graphql HTTP/1.1" 200 OK
+2025-10-14 21:10:46,986 - GraphQLResolvers - INFO - GraphQL: Resolving anonymize mutation (text length: 51)
+2025-10-14 21:10:46,986 - DetectionEngine - INFO - Processing text with domains: ['general']
+2025-10-14 21:10:46,987 - presidio-analyzer - INFO - Fetching all recognizers for language en
+2025-10-14 21:10:46,991 - A2AGeneralNER - INFO - [a2a_ner_general][8a08773d] Received MCP request
+2025-10-14 21:10:46,991 - A2AGeneralNER - INFO - [a2a_ner_general][8a08773d] Parsing request JSON
+2025-10-14 21:10:46,991 - A2AGeneralNER - INFO - [a2a_ner_general][8a08773d] Processing JSON-RPC method: predict
+2025-10-14 21:10:46,991 - A2AGeneralNER - INFO - [a2a_ner_general][8a08773d] Calling predict with text length: 51
+2025-10-14 21:10:46,991 - A2AGeneralNER - INFO - [a2a_ner_general][a64e3fae] ENTRY: predict function called
+2025-10-14 21:10:46,991 - A2AGeneralNER - INFO - [a2a_ner_general][a64e3fae] Processing text of length 51
+2025-10-14 21:10:46,991 - A2AGeneralNER - INFO - [a2a_ner_general][a64e3fae] Step 1: Starting entity detection in thread pool
+2025-10-14 21:10:46,991 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][7c21ab42] Received MCP request
+2025-10-14 21:10:46,991 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][7c21ab42] Parsing request JSON
+2025-10-14 21:10:46,991 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][7c21ab42] Processing JSON-RPC method: predict
+2025-10-14 21:10:46,991 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][7c21ab42] Calling predict with text length: 51
+2025-10-14 21:10:46,991 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f4cd2804] ENTRY: predict function called
+2025-10-14 21:10:46,991 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f4cd2804] Processing text of length 51
+2025-10-14 21:10:46,991 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f4cd2804] Step 1: Starting entity detection
+2025-10-14 21:10:47,377 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f4cd2804] Step 2: Detection completed in 0.39s
+2025-10-14 21:10:47,377 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f4cd2804] Step 3: Processing 2 entities
+2025-10-14 21:10:47,377 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f4cd2804] Step 4: Processing completed, returning 2 entities in 0.39s
+2025-10-14 21:10:47,377 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f4cd2804] Entity types found: {'EMAIL': 2}
+2025-10-14 21:10:47,377 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f4cd2804] EXIT: predict function completed successfully
+2025-10-14 21:10:47,377 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][7c21ab42] predict completed in 0.39s, found 2 entities
+2025-10-14 21:10:47,377 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][7c21ab42] Returning response
+INFO:     127.0.0.1:52501 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:10:47,426 - A2AGeneralNER - INFO - [a2a_ner_general][a64e3fae] Step 2: Detection completed in 0.43s
+2025-10-14 21:10:47,426 - A2AGeneralNER - INFO - [a2a_ner_general][a64e3fae] Step 3: Processing 2 entities
+2025-10-14 21:10:47,426 - A2AGeneralNER - INFO - [a2a_ner_general][a64e3fae] Step 4: Processing completed, returning 2 entities in 0.43s
+2025-10-14 21:10:47,426 - A2AGeneralNER - INFO - [a2a_ner_general][a64e3fae] Entity types found: {'PER': 1, 'ORG': 1}
+2025-10-14 21:10:47,426 - A2AGeneralNER - INFO - [a2a_ner_general][a64e3fae] EXIT: predict function completed successfully
+2025-10-14 21:10:47,426 - A2AGeneralNER - INFO - [a2a_ner_general][8a08773d] predict completed in 0.44s, found 2 entities
+2025-10-14 21:10:47,426 - A2AGeneralNER - INFO - [a2a_ner_general][8a08773d] Returning response
+INFO:     127.0.0.1:52500 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:10:47,427 - DetectionEngine - INFO - Detection completed in 0.44s. Found 3 entities
+2025-10-14 21:10:47,427 - AnonymizationEngine - INFO - Anonymizing text of length 51 with 3 entities using strategy: pseudonymize
+2025-10-14 21:10:47,427 - AnonymizationEngine - INFO - Anonymization completed: 3 entities processed
+INFO:     127.0.0.1:52497 - "POST /graphql HTTP/1.1" 200 OK
+2025-10-14 21:10:57,721 - GraphQLResolvers - INFO - GraphQL: Resolving anonymize_batch mutation (batch size: 2)
+2025-10-14 21:10:57,721 - DetectionEngine - INFO - Processing text with domains: ['general']
+2025-10-14 21:10:57,721 - presidio-analyzer - INFO - Fetching all recognizers for language en
+2025-10-14 21:10:57,722 - DetectionEngine - INFO - Processing text with domains: ['general']
+2025-10-14 21:10:57,722 - presidio-analyzer - INFO - Fetching all recognizers for language en
+2025-10-14 21:10:57,729 - A2AGeneralNER - INFO - [a2a_ner_general][bbfbac49] Received MCP request
+2025-10-14 21:10:57,729 - A2AGeneralNER - INFO - [a2a_ner_general][bbfbac49] Parsing request JSON
+2025-10-14 21:10:57,729 - A2AGeneralNER - INFO - [a2a_ner_general][bbfbac49] Processing JSON-RPC method: predict
+2025-10-14 21:10:57,729 - A2AGeneralNER - INFO - [a2a_ner_general][bbfbac49] Calling predict with text length: 22
+2025-10-14 21:10:57,729 - A2AGeneralNER - INFO - [a2a_ner_general][b15aa6e3] ENTRY: predict function called
+2025-10-14 21:10:57,729 - A2AGeneralNER - INFO - [a2a_ner_general][b15aa6e3] Processing text of length 22
+2025-10-14 21:10:57,729 - A2AGeneralNER - INFO - [a2a_ner_general][b15aa6e3] Step 1: Starting entity detection in thread pool
+2025-10-14 21:10:57,730 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][915d63cb] Received MCP request
+2025-10-14 21:10:57,730 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][915d63cb] Parsing request JSON
+2025-10-14 21:10:57,730 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][915d63cb] Processing JSON-RPC method: predict
+2025-10-14 21:10:57,730 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][915d63cb] Calling predict with text length: 22
+2025-10-14 21:10:57,730 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][05e45c72] ENTRY: predict function called
+2025-10-14 21:10:57,730 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][05e45c72] Processing text of length 22
+2025-10-14 21:10:57,730 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][05e45c72] Step 1: Starting entity detection
+2025-10-14 21:10:57,730 - A2AGeneralNER - INFO - [a2a_ner_general][b9f82dad] Received MCP request
+2025-10-14 21:10:57,730 - A2AGeneralNER - INFO - [a2a_ner_general][b9f82dad] Parsing request JSON
+2025-10-14 21:10:57,731 - A2AGeneralNER - INFO - [a2a_ner_general][b9f82dad] Processing JSON-RPC method: predict
+2025-10-14 21:10:57,731 - A2AGeneralNER - INFO - [a2a_ner_general][b9f82dad] Calling predict with text length: 20
+2025-10-14 21:10:57,731 - A2AGeneralNER - INFO - [a2a_ner_general][decd1f50] ENTRY: predict function called
+2025-10-14 21:10:57,731 - A2AGeneralNER - INFO - [a2a_ner_general][decd1f50] Processing text of length 20
+2025-10-14 21:10:57,731 - A2AGeneralNER - INFO - [a2a_ner_general][decd1f50] Step 1: Starting entity detection in thread pool
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][05e45c72] Step 2: Detection completed in 0.05s
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][05e45c72] Step 3: Processing 1 entities
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][05e45c72] Step 4: Processing completed, returning 1 entities in 0.05s
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][05e45c72] Entity types found: {'NAME_STUDENT': 1}
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][05e45c72] EXIT: predict function completed successfully
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][915d63cb] predict completed in 0.05s, found 1 entities
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][915d63cb] Returning response
+INFO:     127.0.0.1:52519 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][04ff7eab] Received MCP request
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][04ff7eab] Parsing request JSON
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][04ff7eab] Processing JSON-RPC method: predict
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][04ff7eab] Calling predict with text length: 20
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f6a9ba04] ENTRY: predict function called
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f6a9ba04] Processing text of length 20
+2025-10-14 21:10:57,776 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f6a9ba04] Step 1: Starting entity detection
+2025-10-14 21:10:58,354 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f6a9ba04] Step 2: Detection completed in 0.58s
+2025-10-14 21:10:58,354 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f6a9ba04] Step 3: Processing 1 entities
+2025-10-14 21:10:58,354 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f6a9ba04] Step 4: Processing completed, returning 1 entities in 0.58s
+2025-10-14 21:10:58,354 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f6a9ba04] Entity types found: {'NAME_STUDENT': 1}
+2025-10-14 21:10:58,354 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f6a9ba04] EXIT: predict function completed successfully
+2025-10-14 21:10:58,354 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][04ff7eab] predict completed in 0.58s, found 1 entities
+2025-10-14 21:10:58,354 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][04ff7eab] Returning response
+INFO:     127.0.0.1:52522 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:10:58,396 - A2AGeneralNER - INFO - [a2a_ner_general][b15aa6e3] Step 2: Detection completed in 0.67s
+2025-10-14 21:10:58,396 - A2AGeneralNER - INFO - [a2a_ner_general][b15aa6e3] Step 3: Processing 2 entities
+2025-10-14 21:10:58,396 - A2AGeneralNER - INFO - [a2a_ner_general][b15aa6e3] Step 4: Processing completed, returning 2 entities in 0.67s
+2025-10-14 21:10:58,396 - A2AGeneralNER - INFO - [a2a_ner_general][b15aa6e3] Entity types found: {'PER': 1, 'LOC': 1}
+2025-10-14 21:10:58,396 - A2AGeneralNER - INFO - [a2a_ner_general][b15aa6e3] EXIT: predict function completed successfully
+2025-10-14 21:10:58,397 - A2AGeneralNER - INFO - [a2a_ner_general][bbfbac49] predict completed in 0.67s, found 2 entities
+2025-10-14 21:10:58,397 - A2AGeneralNER - INFO - [a2a_ner_general][bbfbac49] Returning response
+INFO:     127.0.0.1:52517 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:10:58,397 - DetectionEngine - INFO - Detection completed in 0.68s. Found 2 entities
+2025-10-14 21:10:58,401 - A2AGeneralNER - INFO - [a2a_ner_general][decd1f50] Step 2: Detection completed in 0.67s
+2025-10-14 21:10:58,401 - A2AGeneralNER - INFO - [a2a_ner_general][decd1f50] Step 3: Processing 2 entities
+2025-10-14 21:10:58,402 - A2AGeneralNER - INFO - [a2a_ner_general][decd1f50] Step 4: Processing completed, returning 2 entities in 0.67s
+2025-10-14 21:10:58,402 - A2AGeneralNER - INFO - [a2a_ner_general][decd1f50] Entity types found: {'PER': 1, 'ORG': 1}
+2025-10-14 21:10:58,402 - A2AGeneralNER - INFO - [a2a_ner_general][decd1f50] EXIT: predict function completed successfully
+2025-10-14 21:10:58,402 - A2AGeneralNER - INFO - [a2a_ner_general][b9f82dad] predict completed in 0.67s, found 2 entities
+2025-10-14 21:10:58,402 - A2AGeneralNER - INFO - [a2a_ner_general][b9f82dad] Returning response
+INFO:     127.0.0.1:52521 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:10:58,402 - DetectionEngine - INFO - Detection completed in 0.68s. Found 2 entities
+2025-10-14 21:10:58,402 - DetectionEngine - INFO - Batch detection completed for 2 texts in 0.68s
+2025-10-14 21:10:58,402 - AnonymizationEngine - INFO - Anonymizing text of length 20 with 2 entities using strategy: pseudonymize
+2025-10-14 21:10:58,402 - AnonymizationEngine - INFO - Anonymization completed: 2 entities processed
+2025-10-14 21:10:58,402 - AnonymizationEngine - INFO - Anonymizing text of length 22 with 2 entities using strategy: pseudonymize
+2025-10-14 21:10:58,402 - AnonymizationEngine - INFO - Anonymization completed: 2 entities processed
+INFO:     127.0.0.1:52516 - "POST /graphql HTTP/1.1" 200 OK
+2025-10-14 21:11:08,289 - GraphQLResolvers - INFO - GraphQL: Resolving anonymize mutation (text length: 47)
+2025-10-14 21:11:08,289 - DetectionEngine - INFO - Processing text with domains: ['general']
+2025-10-14 21:11:08,290 - presidio-analyzer - INFO - Fetching all recognizers for language en
+2025-10-14 21:11:08,294 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3a9f3b85] Received MCP request
+2025-10-14 21:11:08,294 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3a9f3b85] Parsing request JSON
+2025-10-14 21:11:08,294 - A2AGeneralNER - INFO - [a2a_ner_general][b3459d5d] Received MCP request
+2025-10-14 21:11:08,294 - A2AGeneralNER - INFO - [a2a_ner_general][b3459d5d] Parsing request JSON
+2025-10-14 21:11:08,294 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3a9f3b85] Processing JSON-RPC method: predict
+2025-10-14 21:11:08,294 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3a9f3b85] Calling predict with text length: 47
+2025-10-14 21:11:08,294 - A2AGeneralNER - INFO - [a2a_ner_general][b3459d5d] Processing JSON-RPC method: predict
+2025-10-14 21:11:08,294 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ac96a62f] ENTRY: predict function called
+2025-10-14 21:11:08,294 - A2AGeneralNER - INFO - [a2a_ner_general][b3459d5d] Calling predict with text length: 47
+2025-10-14 21:11:08,294 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ac96a62f] Processing text of length 47
+2025-10-14 21:11:08,294 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ac96a62f] Step 1: Starting entity detection
+2025-10-14 21:11:08,294 - A2AGeneralNER - INFO - [a2a_ner_general][723eacbf] ENTRY: predict function called
+2025-10-14 21:11:08,294 - A2AGeneralNER - INFO - [a2a_ner_general][723eacbf] Processing text of length 47
+2025-10-14 21:11:08,294 - A2AGeneralNER - INFO - [a2a_ner_general][723eacbf] Step 1: Starting entity detection in thread pool
+2025-10-14 21:11:08,427 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ac96a62f] Step 2: Detection completed in 0.13s
+2025-10-14 21:11:08,427 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ac96a62f] Step 3: Processing 4 entities
+2025-10-14 21:11:08,427 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ac96a62f] Step 4: Processing completed, returning 4 entities in 0.13s
+2025-10-14 21:11:08,427 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ac96a62f] Entity types found: {'EMAIL': 3, 'NAME_STUDENT': 1}
+2025-10-14 21:11:08,427 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ac96a62f] EXIT: predict function completed successfully
+2025-10-14 21:11:08,427 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3a9f3b85] predict completed in 0.13s, found 4 entities
+2025-10-14 21:11:08,427 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3a9f3b85] Returning response
+INFO:     127.0.0.1:52538 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:11:08,503 - A2AGeneralNER - INFO - [a2a_ner_general][723eacbf] Step 2: Detection completed in 0.21s
+2025-10-14 21:11:08,503 - A2AGeneralNER - INFO - [a2a_ner_general][723eacbf] Step 3: Processing 1 entities
+2025-10-14 21:11:08,503 - A2AGeneralNER - INFO - [a2a_ner_general][723eacbf] Step 4: Processing completed, returning 1 entities in 0.21s
+2025-10-14 21:11:08,503 - A2AGeneralNER - INFO - [a2a_ner_general][723eacbf] Entity types found: {'PER': 1}
+2025-10-14 21:11:08,503 - A2AGeneralNER - INFO - [a2a_ner_general][723eacbf] EXIT: predict function completed successfully
+2025-10-14 21:11:08,503 - A2AGeneralNER - INFO - [a2a_ner_general][b3459d5d] predict completed in 0.21s, found 1 entities
+2025-10-14 21:11:08,503 - A2AGeneralNER - INFO - [a2a_ner_general][b3459d5d] Returning response
+INFO:     127.0.0.1:52537 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:11:08,503 - DetectionEngine - INFO - Detection completed in 0.21s. Found 2 entities
+2025-10-14 21:11:08,503 - AnonymizationEngine - INFO - Anonymizing text of length 47 with 2 entities using strategy: pseudonymize
+2025-10-14 21:11:08,503 - AnonymizationEngine - INFO - Anonymization completed: 2 entities processed
+INFO:     127.0.0.1:52534 - "POST /graphql HTTP/1.1" 200 OK
+2025-10-14 21:11:18,335 - A2AGeneralNER - INFO - [a2a_ner_general][79c295d9] Received MCP request
+2025-10-14 21:11:18,336 - A2AGeneralNER - INFO - [a2a_ner_general][79c295d9] Parsing request JSON
+2025-10-14 21:11:18,336 - A2AGeneralNER - INFO - [a2a_ner_general][79c295d9] Processing JSON-RPC method: health_check
+2025-10-14 21:11:18,336 - A2AGeneralNER - INFO - [a2a_ner_general][79c295d9] Calling health_check
+2025-10-14 21:11:18,336 - A2AGeneralNER - INFO - [a2a_ner_general][cd28b517] ENTRY: health_check function called
+2025-10-14 21:11:18,336 - A2AGeneralNER - INFO - [a2a_ner_general][cd28b517] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 15:41:18'}
+2025-10-14 21:11:18,336 - A2AGeneralNER - INFO - [a2a_ner_general][cd28b517] EXIT: health_check function completed
+2025-10-14 21:11:18,336 - A2AGeneralNER - INFO - [a2a_ner_general][79c295d9] Returning health check response
+INFO:     127.0.0.1:52551 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:11:18,339 - A2AMedicalNER - INFO - [a2a_ner_medical][5e7af2c9] Received MCP request
+2025-10-14 21:11:18,339 - A2AMedicalNER - INFO - [a2a_ner_medical][5e7af2c9] Parsing request JSON
+2025-10-14 21:11:18,339 - A2AMedicalNER - INFO - [a2a_ner_medical][5e7af2c9] Processing JSON-RPC method: health_check
+2025-10-14 21:11:18,339 - A2AMedicalNER - INFO - [a2a_ner_medical][5e7af2c9] Calling health_check
+2025-10-14 21:11:18,339 - A2AMedicalNER - INFO - [a2a_ner_medical][3ff913c0] ENTRY: health_check function called
+2025-10-14 21:11:18,339 - A2AMedicalNER - INFO - [a2a_ner_medical][3ff913c0] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 15:41:18'}
+2025-10-14 21:11:18,340 - A2AMedicalNER - INFO - [a2a_ner_medical][3ff913c0] EXIT: health_check function completed
+2025-10-14 21:11:18,340 - A2AMedicalNER - INFO - [a2a_ner_medical][5e7af2c9] Returning health check response
+INFO:     127.0.0.1:52553 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:11:18,342 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][71f555d9] Received MCP request
+2025-10-14 21:11:18,342 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][71f555d9] Parsing request JSON
+2025-10-14 21:11:18,343 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][71f555d9] Processing JSON-RPC method: health_check
+2025-10-14 21:11:18,343 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][71f555d9] Calling health_check
+2025-10-14 21:11:18,343 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5777bb5f] ENTRY: health_check function called
+2025-10-14 21:11:18,343 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5777bb5f] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 15:41:18'}
+2025-10-14 21:11:18,343 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5777bb5f] EXIT: health_check function completed
+2025-10-14 21:11:18,343 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][71f555d9] Returning health check response
+INFO:     127.0.0.1:52555 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:11:18,784 - GraphQLResolvers - INFO - GraphQL: Resolving detect_entities query (text length: 30)
+2025-10-14 21:11:18,784 - DetectionEngine - INFO - Processing text with domains: ['general']
+2025-10-14 21:11:18,784 - presidio-analyzer - INFO - Fetching all recognizers for language en
+2025-10-14 21:11:18,785 - A2AGeneralNER - INFO - [a2a_ner_general][8eb74d42] Received MCP request
+2025-10-14 21:11:18,785 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][0c9878c1] Received MCP request
+2025-10-14 21:11:18,785 - A2AGeneralNER - INFO - [a2a_ner_general][8eb74d42] Parsing request JSON
+2025-10-14 21:11:18,785 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][0c9878c1] Parsing request JSON
+2025-10-14 21:11:18,785 - A2AGeneralNER - INFO - [a2a_ner_general][8eb74d42] Processing JSON-RPC method: predict
+2025-10-14 21:11:18,786 - A2AGeneralNER - INFO - [a2a_ner_general][8eb74d42] Calling predict with text length: 30
+2025-10-14 21:11:18,786 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][0c9878c1] Processing JSON-RPC method: predict
+2025-10-14 21:11:18,786 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][0c9878c1] Calling predict with text length: 30
+2025-10-14 21:11:18,786 - A2AGeneralNER - INFO - [a2a_ner_general][8f26d8ca] ENTRY: predict function called
+2025-10-14 21:11:18,786 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][b0263d0c] ENTRY: predict function called
+2025-10-14 21:11:18,786 - A2AGeneralNER - INFO - [a2a_ner_general][8f26d8ca] Processing text of length 30
+2025-10-14 21:11:18,786 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][b0263d0c] Processing text of length 30
+2025-10-14 21:11:18,786 - A2AGeneralNER - INFO - [a2a_ner_general][8f26d8ca] Step 1: Starting entity detection in thread pool
+2025-10-14 21:11:18,786 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][b0263d0c] Step 1: Starting entity detection
+2025-10-14 21:11:19,054 - A2AGeneralNER - INFO - [a2a_ner_general][8f26d8ca] Step 2: Detection completed in 0.27s
+2025-10-14 21:11:19,054 - A2AGeneralNER - INFO - [a2a_ner_general][8f26d8ca] Step 3: Processing 1 entities
+2025-10-14 21:11:19,054 - A2AGeneralNER - INFO - [a2a_ner_general][8f26d8ca] Step 4: Processing completed, returning 1 entities in 0.27s
+2025-10-14 21:11:19,054 - A2AGeneralNER - INFO - [a2a_ner_general][8f26d8ca] Entity types found: {'PER': 1}
+2025-10-14 21:11:19,054 - A2AGeneralNER - INFO - [a2a_ner_general][8f26d8ca] EXIT: predict function completed successfully
+2025-10-14 21:11:19,054 - A2AGeneralNER - INFO - [a2a_ner_general][8eb74d42] predict completed in 0.27s, found 1 entities
+2025-10-14 21:11:19,054 - A2AGeneralNER - INFO - [a2a_ner_general][8eb74d42] Returning response
+INFO:     127.0.0.1:52551 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:11:19,098 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][b0263d0c] Step 2: Detection completed in 0.31s
+2025-10-14 21:11:19,098 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][b0263d0c] Step 3: Processing 4 entities
+2025-10-14 21:11:19,098 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][b0263d0c] Step 4: Processing completed, returning 4 entities in 0.31s
+2025-10-14 21:11:19,098 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][b0263d0c] Entity types found: {'EMAIL': 4}
+2025-10-14 21:11:19,098 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][b0263d0c] EXIT: predict function completed successfully
+2025-10-14 21:11:19,098 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][0c9878c1] predict completed in 0.31s, found 4 entities
+2025-10-14 21:11:19,098 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][0c9878c1] Returning response
+INFO:     127.0.0.1:52555 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:11:19,099 - DetectionEngine - INFO - Detection completed in 0.31s. Found 2 entities
+INFO:     127.0.0.1:52557 - "POST /graphql HTTP/1.1" 200 OK
+2025-10-14 21:11:29,469 - GraphQLResolvers - INFO - GraphQL: Resolving config query
+INFO:     127.0.0.1:52572 - "POST /graphql HTTP/1.1" 200 OK
+2025-10-14 21:11:38,785 - GraphQLResolvers - INFO - GraphQL: Resolving MCP status query
+INFO:     127.0.0.1:52587 - "POST /graphql HTTP/1.1" 200 OK
+2025-10-14 21:12:18,346 - A2AGeneralNER - INFO - [a2a_ner_general][17ff5687] Received MCP request
+2025-10-14 21:12:18,346 - A2AGeneralNER - INFO - [a2a_ner_general][17ff5687] Parsing request JSON
+2025-10-14 21:12:18,347 - A2AGeneralNER - INFO - [a2a_ner_general][17ff5687] Processing JSON-RPC method: health_check
+2025-10-14 21:12:18,347 - A2AGeneralNER - INFO - [a2a_ner_general][17ff5687] Calling health_check
+2025-10-14 21:12:18,347 - A2AGeneralNER - INFO - [a2a_ner_general][c9d59cdf] ENTRY: health_check function called
+2025-10-14 21:12:18,347 - A2AGeneralNER - INFO - [a2a_ner_general][c9d59cdf] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 15:42:18'}
+2025-10-14 21:12:18,347 - A2AGeneralNER - INFO - [a2a_ner_general][c9d59cdf] EXIT: health_check function completed
+2025-10-14 21:12:18,347 - A2AGeneralNER - INFO - [a2a_ner_general][17ff5687] Returning health check response
+INFO:     127.0.0.1:52642 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:12:18,350 - A2AMedicalNER - INFO - [a2a_ner_medical][7539b6d0] Received MCP request
+2025-10-14 21:12:18,350 - A2AMedicalNER - INFO - [a2a_ner_medical][7539b6d0] Parsing request JSON
+2025-10-14 21:12:18,350 - A2AMedicalNER - INFO - [a2a_ner_medical][7539b6d0] Processing JSON-RPC method: health_check
+2025-10-14 21:12:18,350 - A2AMedicalNER - INFO - [a2a_ner_medical][7539b6d0] Calling health_check
+2025-10-14 21:12:18,350 - A2AMedicalNER - INFO - [a2a_ner_medical][64d72b65] ENTRY: health_check function called
+2025-10-14 21:12:18,350 - A2AMedicalNER - INFO - [a2a_ner_medical][64d72b65] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 15:42:18'}
+2025-10-14 21:12:18,350 - A2AMedicalNER - INFO - [a2a_ner_medical][64d72b65] EXIT: health_check function completed
+2025-10-14 21:12:18,350 - A2AMedicalNER - INFO - [a2a_ner_medical][7539b6d0] Returning health check response
+INFO:     127.0.0.1:52644 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:12:18,353 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3cff4e96] Received MCP request
+2025-10-14 21:12:18,353 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3cff4e96] Parsing request JSON
+2025-10-14 21:12:18,353 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3cff4e96] Processing JSON-RPC method: health_check
+2025-10-14 21:12:18,353 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3cff4e96] Calling health_check
+2025-10-14 21:12:18,353 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][69d05a89] ENTRY: health_check function called
+2025-10-14 21:12:18,353 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][69d05a89] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 15:42:18'}
+2025-10-14 21:12:18,353 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][69d05a89] EXIT: health_check function completed
+2025-10-14 21:12:18,353 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][3cff4e96] Returning health check response
+INFO:     127.0.0.1:52646 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:13:18,357 - A2AGeneralNER - INFO - [a2a_ner_general][5dcfe967] Received MCP request
+2025-10-14 21:13:18,358 - A2AGeneralNER - INFO - [a2a_ner_general][5dcfe967] Parsing request JSON
+2025-10-14 21:13:18,358 - A2AGeneralNER - INFO - [a2a_ner_general][5dcfe967] Processing JSON-RPC method: health_check
+2025-10-14 21:13:18,359 - A2AGeneralNER - INFO - [a2a_ner_general][5dcfe967] Calling health_check
+2025-10-14 21:13:18,359 - A2AGeneralNER - INFO - [a2a_ner_general][e0a0ed94] ENTRY: health_check function called
+2025-10-14 21:13:18,359 - A2AGeneralNER - INFO - [a2a_ner_general][e0a0ed94] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 15:43:18'}
+2025-10-14 21:13:18,359 - A2AGeneralNER - INFO - [a2a_ner_general][e0a0ed94] EXIT: health_check function completed
+2025-10-14 21:13:18,359 - A2AGeneralNER - INFO - [a2a_ner_general][5dcfe967] Returning health check response
+INFO:     127.0.0.1:52770 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:13:18,361 - A2AMedicalNER - INFO - [a2a_ner_medical][037087ef] Received MCP request
+2025-10-14 21:13:18,361 - A2AMedicalNER - INFO - [a2a_ner_medical][037087ef] Parsing request JSON
+2025-10-14 21:13:18,361 - A2AMedicalNER - INFO - [a2a_ner_medical][037087ef] Processing JSON-RPC method: health_check
+2025-10-14 21:13:18,361 - A2AMedicalNER - INFO - [a2a_ner_medical][037087ef] Calling health_check
+2025-10-14 21:13:18,361 - A2AMedicalNER - INFO - [a2a_ner_medical][26e2b232] ENTRY: health_check function called
+2025-10-14 21:13:18,361 - A2AMedicalNER - INFO - [a2a_ner_medical][26e2b232] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 15:43:18'}
+2025-10-14 21:13:18,361 - A2AMedicalNER - INFO - [a2a_ner_medical][26e2b232] EXIT: health_check function completed
+2025-10-14 21:13:18,361 - A2AMedicalNER - INFO - [a2a_ner_medical][037087ef] Returning health check response
+INFO:     127.0.0.1:52772 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:13:18,363 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4cc5f465] Received MCP request
+2025-10-14 21:13:18,364 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4cc5f465] Parsing request JSON
+2025-10-14 21:13:18,364 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4cc5f465] Processing JSON-RPC method: health_check
+2025-10-14 21:13:18,364 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4cc5f465] Calling health_check
+2025-10-14 21:13:18,364 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][e8cd31da] ENTRY: health_check function called
+2025-10-14 21:13:18,364 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][e8cd31da] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 15:43:18'}
+2025-10-14 21:13:18,364 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][e8cd31da] EXIT: health_check function completed
+2025-10-14 21:13:18,364 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4cc5f465] Returning health check response
+INFO:     127.0.0.1:52774 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:14:18,369 - A2AGeneralNER - INFO - [a2a_ner_general][e942eb21] Received MCP request
+2025-10-14 21:14:18,369 - A2AGeneralNER - INFO - [a2a_ner_general][e942eb21] Parsing request JSON
+2025-10-14 21:14:18,369 - A2AGeneralNER - INFO - [a2a_ner_general][e942eb21] Processing JSON-RPC method: health_check
+2025-10-14 21:14:18,369 - A2AGeneralNER - INFO - [a2a_ner_general][e942eb21] Calling health_check
+2025-10-14 21:14:18,369 - A2AGeneralNER - INFO - [a2a_ner_general][9aca11a1] ENTRY: health_check function called
+2025-10-14 21:14:18,369 - A2AGeneralNER - INFO - [a2a_ner_general][9aca11a1] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 15:44:18'}
+2025-10-14 21:14:18,369 - A2AGeneralNER - INFO - [a2a_ner_general][9aca11a1] EXIT: health_check function completed
+2025-10-14 21:14:18,369 - A2AGeneralNER - INFO - [a2a_ner_general][e942eb21] Returning health check response
+INFO:     127.0.0.1:52853 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:14:18,372 - A2AMedicalNER - INFO - [a2a_ner_medical][4522ccd2] Received MCP request
+2025-10-14 21:14:18,372 - A2AMedicalNER - INFO - [a2a_ner_medical][4522ccd2] Parsing request JSON
+2025-10-14 21:14:18,372 - A2AMedicalNER - INFO - [a2a_ner_medical][4522ccd2] Processing JSON-RPC method: health_check
+2025-10-14 21:14:18,372 - A2AMedicalNER - INFO - [a2a_ner_medical][4522ccd2] Calling health_check
+2025-10-14 21:14:18,373 - A2AMedicalNER - INFO - [a2a_ner_medical][16c1d7af] ENTRY: health_check function called
+2025-10-14 21:14:18,373 - A2AMedicalNER - INFO - [a2a_ner_medical][16c1d7af] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 15:44:18'}
+2025-10-14 21:14:18,373 - A2AMedicalNER - INFO - [a2a_ner_medical][16c1d7af] EXIT: health_check function completed
+2025-10-14 21:14:18,373 - A2AMedicalNER - INFO - [a2a_ner_medical][4522ccd2] Returning health check response
+INFO:     127.0.0.1:52855 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:14:18,375 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][d8a03060] Received MCP request
+2025-10-14 21:14:18,375 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][d8a03060] Parsing request JSON
+2025-10-14 21:14:18,375 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][d8a03060] Processing JSON-RPC method: health_check
+2025-10-14 21:14:18,375 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][d8a03060] Calling health_check
+2025-10-14 21:14:18,376 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ad300f51] ENTRY: health_check function called
+2025-10-14 21:14:18,376 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ad300f51] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 15:44:18'}
+2025-10-14 21:14:18,376 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ad300f51] EXIT: health_check function completed
+2025-10-14 21:14:18,376 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][d8a03060] Returning health check response
+INFO:     127.0.0.1:52857 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:15:18,379 - A2AGeneralNER - INFO - [a2a_ner_general][f0cf4d3c] Received MCP request
+2025-10-14 21:15:18,380 - A2AGeneralNER - INFO - [a2a_ner_general][f0cf4d3c] Parsing request JSON
+2025-10-14 21:15:18,380 - A2AGeneralNER - INFO - [a2a_ner_general][f0cf4d3c] Processing JSON-RPC method: health_check
+2025-10-14 21:15:18,380 - A2AGeneralNER - INFO - [a2a_ner_general][f0cf4d3c] Calling health_check
+2025-10-14 21:15:18,380 - A2AGeneralNER - INFO - [a2a_ner_general][12681971] ENTRY: health_check function called
+2025-10-14 21:15:18,380 - A2AGeneralNER - INFO - [a2a_ner_general][12681971] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 15:45:18'}
+2025-10-14 21:15:18,380 - A2AGeneralNER - INFO - [a2a_ner_general][12681971] EXIT: health_check function completed
+2025-10-14 21:15:18,380 - A2AGeneralNER - INFO - [a2a_ner_general][f0cf4d3c] Returning health check response
+INFO:     127.0.0.1:52929 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:15:18,381 - A2AMedicalNER - INFO - [a2a_ner_medical][3abe1102] Received MCP request
+2025-10-14 21:15:18,381 - A2AMedicalNER - INFO - [a2a_ner_medical][3abe1102] Parsing request JSON
+2025-10-14 21:15:18,382 - A2AMedicalNER - INFO - [a2a_ner_medical][3abe1102] Processing JSON-RPC method: health_check
+2025-10-14 21:15:18,382 - A2AMedicalNER - INFO - [a2a_ner_medical][3abe1102] Calling health_check
+2025-10-14 21:15:18,382 - A2AMedicalNER - INFO - [a2a_ner_medical][e4af4041] ENTRY: health_check function called
+2025-10-14 21:15:18,382 - A2AMedicalNER - INFO - [a2a_ner_medical][e4af4041] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 15:45:18'}
+2025-10-14 21:15:18,382 - A2AMedicalNER - INFO - [a2a_ner_medical][e4af4041] EXIT: health_check function completed
+2025-10-14 21:15:18,382 - A2AMedicalNER - INFO - [a2a_ner_medical][3abe1102] Returning health check response
+INFO:     127.0.0.1:52931 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:15:18,383 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4afaf8e4] Received MCP request
+2025-10-14 21:15:18,383 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4afaf8e4] Parsing request JSON
+2025-10-14 21:15:18,383 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4afaf8e4] Processing JSON-RPC method: health_check
+2025-10-14 21:15:18,383 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4afaf8e4] Calling health_check
+2025-10-14 21:15:18,383 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][261a7128] ENTRY: health_check function called
+2025-10-14 21:15:18,383 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][261a7128] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 15:45:18'}
+2025-10-14 21:15:18,383 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][261a7128] EXIT: health_check function completed
+2025-10-14 21:15:18,383 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][4afaf8e4] Returning health check response
+INFO:     127.0.0.1:52933 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:16:18,388 - A2AGeneralNER - INFO - [a2a_ner_general][8b539806] Received MCP request
+2025-10-14 21:16:18,389 - A2AGeneralNER - INFO - [a2a_ner_general][8b539806] Parsing request JSON
+2025-10-14 21:16:18,389 - A2AGeneralNER - INFO - [a2a_ner_general][8b539806] Processing JSON-RPC method: health_check
+2025-10-14 21:16:18,389 - A2AGeneralNER - INFO - [a2a_ner_general][8b539806] Calling health_check
+2025-10-14 21:16:18,389 - A2AGeneralNER - INFO - [a2a_ner_general][be324eaf] ENTRY: health_check function called
+2025-10-14 21:16:18,389 - A2AGeneralNER - INFO - [a2a_ner_general][be324eaf] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 15:46:18'}
+2025-10-14 21:16:18,389 - A2AGeneralNER - INFO - [a2a_ner_general][be324eaf] EXIT: health_check function completed
+2025-10-14 21:16:18,389 - A2AGeneralNER - INFO - [a2a_ner_general][8b539806] Returning health check response
+INFO:     127.0.0.1:53019 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:16:18,391 - A2AMedicalNER - INFO - [a2a_ner_medical][13768e18] Received MCP request
+2025-10-14 21:16:18,391 - A2AMedicalNER - INFO - [a2a_ner_medical][13768e18] Parsing request JSON
+2025-10-14 21:16:18,391 - A2AMedicalNER - INFO - [a2a_ner_medical][13768e18] Processing JSON-RPC method: health_check
+2025-10-14 21:16:18,391 - A2AMedicalNER - INFO - [a2a_ner_medical][13768e18] Calling health_check
+2025-10-14 21:16:18,391 - A2AMedicalNER - INFO - [a2a_ner_medical][030e90fa] ENTRY: health_check function called
+2025-10-14 21:16:18,391 - A2AMedicalNER - INFO - [a2a_ner_medical][030e90fa] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 15:46:18'}
+2025-10-14 21:16:18,391 - A2AMedicalNER - INFO - [a2a_ner_medical][030e90fa] EXIT: health_check function completed
+2025-10-14 21:16:18,391 - A2AMedicalNER - INFO - [a2a_ner_medical][13768e18] Returning health check response
+INFO:     127.0.0.1:53021 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:16:18,393 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5ddf0505] Received MCP request
+2025-10-14 21:16:18,393 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5ddf0505] Parsing request JSON
+2025-10-14 21:16:18,393 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5ddf0505] Processing JSON-RPC method: health_check
+2025-10-14 21:16:18,393 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5ddf0505] Calling health_check
+2025-10-14 21:16:18,393 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][9bc263de] ENTRY: health_check function called
+2025-10-14 21:16:18,393 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][9bc263de] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 15:46:18'}
+2025-10-14 21:16:18,393 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][9bc263de] EXIT: health_check function completed
+2025-10-14 21:16:18,393 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][5ddf0505] Returning health check response
+INFO:     127.0.0.1:53023 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:17:18,396 - A2AGeneralNER - INFO - [a2a_ner_general][aafd6dde] Received MCP request
+2025-10-14 21:17:18,397 - A2AGeneralNER - INFO - [a2a_ner_general][aafd6dde] Parsing request JSON
+2025-10-14 21:17:18,397 - A2AGeneralNER - INFO - [a2a_ner_general][aafd6dde] Processing JSON-RPC method: health_check
+2025-10-14 21:17:18,397 - A2AGeneralNER - INFO - [a2a_ner_general][aafd6dde] Calling health_check
+2025-10-14 21:17:18,397 - A2AGeneralNER - INFO - [a2a_ner_general][2f2f2c30] ENTRY: health_check function called
+2025-10-14 21:17:18,397 - A2AGeneralNER - INFO - [a2a_ner_general][2f2f2c30] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 15:47:18'}
+2025-10-14 21:17:18,397 - A2AGeneralNER - INFO - [a2a_ner_general][2f2f2c30] EXIT: health_check function completed
+2025-10-14 21:17:18,397 - A2AGeneralNER - INFO - [a2a_ner_general][aafd6dde] Returning health check response
+INFO:     127.0.0.1:53111 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:17:18,400 - A2AMedicalNER - INFO - [a2a_ner_medical][85a2dcfc] Received MCP request
+2025-10-14 21:17:18,400 - A2AMedicalNER - INFO - [a2a_ner_medical][85a2dcfc] Parsing request JSON
+2025-10-14 21:17:18,400 - A2AMedicalNER - INFO - [a2a_ner_medical][85a2dcfc] Processing JSON-RPC method: health_check
+2025-10-14 21:17:18,400 - A2AMedicalNER - INFO - [a2a_ner_medical][85a2dcfc] Calling health_check
+2025-10-14 21:17:18,400 - A2AMedicalNER - INFO - [a2a_ner_medical][c5d56d03] ENTRY: health_check function called
+2025-10-14 21:17:18,400 - A2AMedicalNER - INFO - [a2a_ner_medical][c5d56d03] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 15:47:18'}
+2025-10-14 21:17:18,400 - A2AMedicalNER - INFO - [a2a_ner_medical][c5d56d03] EXIT: health_check function completed
+2025-10-14 21:17:18,400 - A2AMedicalNER - INFO - [a2a_ner_medical][85a2dcfc] Returning health check response
+INFO:     127.0.0.1:53113 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:17:18,403 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][751d5f94] Received MCP request
+2025-10-14 21:17:18,403 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][751d5f94] Parsing request JSON
+2025-10-14 21:17:18,403 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][751d5f94] Processing JSON-RPC method: health_check
+2025-10-14 21:17:18,403 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][751d5f94] Calling health_check
+2025-10-14 21:17:18,403 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][b607a93a] ENTRY: health_check function called
+2025-10-14 21:17:18,403 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][b607a93a] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 15:47:18'}
+2025-10-14 21:17:18,404 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][b607a93a] EXIT: health_check function completed
+2025-10-14 21:17:18,404 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][751d5f94] Returning health check response
+INFO:     127.0.0.1:53115 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:18:18,408 - A2AGeneralNER - INFO - [a2a_ner_general][b6181d94] Received MCP request
+2025-10-14 21:18:18,409 - A2AGeneralNER - INFO - [a2a_ner_general][b6181d94] Parsing request JSON
+2025-10-14 21:18:18,409 - A2AGeneralNER - INFO - [a2a_ner_general][b6181d94] Processing JSON-RPC method: health_check
+2025-10-14 21:18:18,409 - A2AGeneralNER - INFO - [a2a_ner_general][b6181d94] Calling health_check
+2025-10-14 21:18:18,409 - A2AGeneralNER - INFO - [a2a_ner_general][1d05eea9] ENTRY: health_check function called
+2025-10-14 21:18:18,409 - A2AGeneralNER - INFO - [a2a_ner_general][1d05eea9] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 15:48:18'}
+2025-10-14 21:18:18,409 - A2AGeneralNER - INFO - [a2a_ner_general][1d05eea9] EXIT: health_check function completed
+2025-10-14 21:18:18,409 - A2AGeneralNER - INFO - [a2a_ner_general][b6181d94] Returning health check response
+INFO:     127.0.0.1:53182 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:18:18,412 - A2AMedicalNER - INFO - [a2a_ner_medical][da246ad2] Received MCP request
+2025-10-14 21:18:18,412 - A2AMedicalNER - INFO - [a2a_ner_medical][da246ad2] Parsing request JSON
+2025-10-14 21:18:18,412 - A2AMedicalNER - INFO - [a2a_ner_medical][da246ad2] Processing JSON-RPC method: health_check
+2025-10-14 21:18:18,412 - A2AMedicalNER - INFO - [a2a_ner_medical][da246ad2] Calling health_check
+2025-10-14 21:18:18,412 - A2AMedicalNER - INFO - [a2a_ner_medical][f3326229] ENTRY: health_check function called
+2025-10-14 21:18:18,412 - A2AMedicalNER - INFO - [a2a_ner_medical][f3326229] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 15:48:18'}
+2025-10-14 21:18:18,412 - A2AMedicalNER - INFO - [a2a_ner_medical][f3326229] EXIT: health_check function completed
+2025-10-14 21:18:18,412 - A2AMedicalNER - INFO - [a2a_ner_medical][da246ad2] Returning health check response
+INFO:     127.0.0.1:53184 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:18:18,415 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][cfb2bd48] Received MCP request
+2025-10-14 21:18:18,415 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][cfb2bd48] Parsing request JSON
+2025-10-14 21:18:18,415 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][cfb2bd48] Processing JSON-RPC method: health_check
+2025-10-14 21:18:18,415 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][cfb2bd48] Calling health_check
+2025-10-14 21:18:18,415 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][8244d111] ENTRY: health_check function called
+2025-10-14 21:18:18,415 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][8244d111] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 15:48:18'}
+2025-10-14 21:18:18,415 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][8244d111] EXIT: health_check function completed
+2025-10-14 21:18:18,415 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][cfb2bd48] Returning health check response
+INFO:     127.0.0.1:53186 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:19:18,422 - A2AGeneralNER - INFO - [a2a_ner_general][1da11951] Received MCP request
+2025-10-14 21:19:18,424 - A2AGeneralNER - INFO - [a2a_ner_general][1da11951] Parsing request JSON
+2025-10-14 21:19:18,424 - A2AGeneralNER - INFO - [a2a_ner_general][1da11951] Processing JSON-RPC method: health_check
+2025-10-14 21:19:18,424 - A2AGeneralNER - INFO - [a2a_ner_general][1da11951] Calling health_check
+2025-10-14 21:19:18,424 - A2AGeneralNER - INFO - [a2a_ner_general][645008cc] ENTRY: health_check function called
+2025-10-14 21:19:18,424 - A2AGeneralNER - INFO - [a2a_ner_general][645008cc] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 15:49:18'}
+2025-10-14 21:19:18,424 - A2AGeneralNER - INFO - [a2a_ner_general][645008cc] EXIT: health_check function completed
+2025-10-14 21:19:18,424 - A2AGeneralNER - INFO - [a2a_ner_general][1da11951] Returning health check response
+INFO:     127.0.0.1:53268 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:19:18,428 - A2AMedicalNER - INFO - [a2a_ner_medical][5cd00f19] Received MCP request
+2025-10-14 21:19:18,428 - A2AMedicalNER - INFO - [a2a_ner_medical][5cd00f19] Parsing request JSON
+2025-10-14 21:19:18,429 - A2AMedicalNER - INFO - [a2a_ner_medical][5cd00f19] Processing JSON-RPC method: health_check
+2025-10-14 21:19:18,429 - A2AMedicalNER - INFO - [a2a_ner_medical][5cd00f19] Calling health_check
+2025-10-14 21:19:18,429 - A2AMedicalNER - INFO - [a2a_ner_medical][72abbbce] ENTRY: health_check function called
+2025-10-14 21:19:18,429 - A2AMedicalNER - INFO - [a2a_ner_medical][72abbbce] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 15:49:18'}
+2025-10-14 21:19:18,429 - A2AMedicalNER - INFO - [a2a_ner_medical][72abbbce] EXIT: health_check function completed
+2025-10-14 21:19:18,429 - A2AMedicalNER - INFO - [a2a_ner_medical][5cd00f19] Returning health check response
+INFO:     127.0.0.1:53270 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:19:18,431 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f16a9d9a] Received MCP request
+2025-10-14 21:19:18,432 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f16a9d9a] Parsing request JSON
+2025-10-14 21:19:18,432 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f16a9d9a] Processing JSON-RPC method: health_check
+2025-10-14 21:19:18,432 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f16a9d9a] Calling health_check
+2025-10-14 21:19:18,432 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][1505df98] ENTRY: health_check function called
+2025-10-14 21:19:18,432 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][1505df98] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 15:49:18'}
+2025-10-14 21:19:18,432 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][1505df98] EXIT: health_check function completed
+2025-10-14 21:19:18,432 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][f16a9d9a] Returning health check response
+INFO:     127.0.0.1:53272 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:20:18,434 - A2AGeneralNER - INFO - [a2a_ner_general][c8edfd85] Received MCP request
+2025-10-14 21:20:18,435 - A2AGeneralNER - INFO - [a2a_ner_general][c8edfd85] Parsing request JSON
+2025-10-14 21:20:18,435 - A2AGeneralNER - INFO - [a2a_ner_general][c8edfd85] Processing JSON-RPC method: health_check
+2025-10-14 21:20:18,435 - A2AGeneralNER - INFO - [a2a_ner_general][c8edfd85] Calling health_check
+2025-10-14 21:20:18,435 - A2AGeneralNER - INFO - [a2a_ner_general][f1095c4c] ENTRY: health_check function called
+2025-10-14 21:20:18,435 - A2AGeneralNER - INFO - [a2a_ner_general][f1095c4c] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_general', 'model_loaded': True, 'model_name': 'dbmdz/bert-large-cased-finetuned-conll03-english', 'timestamp': '2025-10-14 15:50:18'}
+2025-10-14 21:20:18,435 - A2AGeneralNER - INFO - [a2a_ner_general][f1095c4c] EXIT: health_check function completed
+2025-10-14 21:20:18,435 - A2AGeneralNER - INFO - [a2a_ner_general][c8edfd85] Returning health check response
+INFO:     127.0.0.1:53320 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:20:18,437 - A2AMedicalNER - INFO - [a2a_ner_medical][b50c53b4] Received MCP request
+2025-10-14 21:20:18,437 - A2AMedicalNER - INFO - [a2a_ner_medical][b50c53b4] Parsing request JSON
+2025-10-14 21:20:18,437 - A2AMedicalNER - INFO - [a2a_ner_medical][b50c53b4] Processing JSON-RPC method: health_check
+2025-10-14 21:20:18,437 - A2AMedicalNER - INFO - [a2a_ner_medical][b50c53b4] Calling health_check
+2025-10-14 21:20:18,437 - A2AMedicalNER - INFO - [a2a_ner_medical][3de499a8] ENTRY: health_check function called
+2025-10-14 21:20:18,437 - A2AMedicalNER - INFO - [a2a_ner_medical][3de499a8] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_medical', 'model_loaded': True, 'model_name': 'obi/deid_roberta_i2b2', 'timestamp': '2025-10-14 15:50:18'}
+2025-10-14 21:20:18,437 - A2AMedicalNER - INFO - [a2a_ner_medical][3de499a8] EXIT: health_check function completed
+2025-10-14 21:20:18,437 - A2AMedicalNER - INFO - [a2a_ner_medical][b50c53b4] Returning health check response
+INFO:     127.0.0.1:53322 - "POST /mcp HTTP/1.1" 200 OK
+2025-10-14 21:20:18,439 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ae3bdd2d] Received MCP request
+2025-10-14 21:20:18,439 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ae3bdd2d] Parsing request JSON
+2025-10-14 21:20:18,439 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ae3bdd2d] Processing JSON-RPC method: health_check
+2025-10-14 21:20:18,439 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ae3bdd2d] Calling health_check
+2025-10-14 21:20:18,439 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][02f5f96c] ENTRY: health_check function called
+2025-10-14 21:20:18,439 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][02f5f96c] Health check result: {'status': 'ok', 'agent_id': 'a2a_ner_pii_specialized', 'model_loaded': True, 'model_name': '1-13-am/xlm-roberta-base-pii-finetuned', 'timestamp': '2025-10-14 15:50:18'}
+2025-10-14 21:20:18,439 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][02f5f96c] EXIT: health_check function completed
+2025-10-14 21:20:18,439 - A2ASpecializedPII - INFO - [a2a_ner_pii_specialized][ae3bdd2d] Returning health check response
+INFO:     127.0.0.1:53324 - "POST /mcp HTTP/1.1" 200 OK
