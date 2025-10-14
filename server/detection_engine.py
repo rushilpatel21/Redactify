@@ -693,20 +693,21 @@ class DetectionEngine:
         if not entities:
             return []
         
-        # Group entities by their text content and type
-        entity_groups = {}
+        # Group entities by their POSITION (not just text content)
+        # This allows multiple occurrences of the same word to be detected
+        position_groups = {}
         for entity in entities:
-            entity_text = entity.get('entity_text', '')
-            entity_type = entity.get('entity_group', '').upper()
-            key = (entity_text.lower(), entity_type)
+            start = entity.get('start', 0)
+            end = entity.get('end', 0)
+            key = (start, end)
             
-            if key not in entity_groups:
-                entity_groups[key] = []
-            entity_groups[key].append(entity)
+            if key not in position_groups:
+                position_groups[key] = []
+            position_groups[key].append(entity)
         
-        # For each group, keep only the highest confidence entity
+        # For each position, keep only the highest confidence entity
         unique_entities = []
-        for (text_key, type_key), group in entity_groups.items():
+        for (start, end), group in position_groups.items():
             if not group:
                 continue
             
@@ -714,8 +715,7 @@ class DetectionEngine:
             group.sort(key=lambda x: x.get('score', 0), reverse=True)
             best_entity = group[0]
             
-            # If there are multiple instances of the same entity, keep only the first occurrence
-            # (this prevents the same entity from being anonymized multiple times)
+            # Keep the best entity for this position
             unique_entities.append(best_entity)
         
         # Sort by start position
